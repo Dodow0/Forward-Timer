@@ -35,40 +35,50 @@ function localDateString(date) {
 /**
  * 根据视图模式返回查询的起止日期
  * @param {'day'|'week'|'month'} mode
- * @returns {{ start: string, end: string }}
+ * @param {number} offset - 日期偏移量（0表示当前，-1表示上一个周期）
+ * @returns {{ start: string, end: string, label: string }}
  */
-export function getDateRange(mode) {
-  const now = new Date()
+export function getDateRange(mode, offset = 0) {
+  const targetDate = new Date()
 
   if (mode === 'day') {
-    const d = today()
-    return { start: d, end: d }
+    targetDate.setDate(targetDate.getDate() + offset)
+    const d = localDateString(targetDate)
+    return { start: d, end: d, label: d }
   }
 
   if (mode === 'week') {
-    const dayOfWeek = now.getDay() || 7  // 周日的 0 转为 7
-    const monday = new Date(now)
-    monday.setDate(now.getDate() - dayOfWeek + 1)
+    targetDate.setDate(targetDate.getDate() + offset * 7)
+    const dayOfWeek = targetDate.getDay() || 7  // 周日的 0 转为 7
+    const monday = new Date(targetDate)
+    monday.setDate(targetDate.getDate() - dayOfWeek + 1)
     const sunday = new Date(monday)
     sunday.setDate(monday.getDate() + 6)
+    const start = localDateString(monday)
+    const end = localDateString(sunday)
     return {
-      start: localDateString(monday),
-      end:   localDateString(sunday)
+      start,
+      end,
+      label: `${start} ~ ${end}`
     }
   }
 
   if (mode === 'month') {
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
-    const lastDay  = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    targetDate.setMonth(targetDate.getMonth() + offset)
+    const y = targetDate.getFullYear()
+    const m = targetDate.getMonth()
+    const firstDay = new Date(y, m, 1)
+    const lastDay  = new Date(y, m + 1, 0)
     return {
       start: localDateString(firstDay),
-      end:   localDateString(lastDay)
+      end:   localDateString(lastDay),
+      label: `${y}年${m + 1}月`
     }
   }
 
   // 兜底：避免未知 mode 导致解构 undefined 报错
   const d = today()
-  return { start: d, end: d }
+  return { start: d, end: d, label: d }
 }
 
 // ─────────────────────────────────────────

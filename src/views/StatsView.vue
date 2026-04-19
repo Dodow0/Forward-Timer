@@ -27,6 +27,11 @@
           <input type="date" v-model="customEnd" />
         </div>
       </div>
+                  <div v-else class="date-navigator">
+        <button class="nav-btn" @click="prevPeriod">‹</button>
+        <span class="period-label">{{ currentPeriodLabel }}</span>
+        <button class="nav-btn" @click="nextPeriod" :disabled="periodOffset >= 0">›</button>
+      </div>
     </header>
 
     <div class="stats-body">
@@ -76,6 +81,8 @@ const categoryStore = useCategoryStore()
 const mode    = ref('day')
 const records = ref([])
 const loading = ref(false)
+const periodOffset = ref(0)           // 周期偏移量
+const currentPeriodLabel = ref('')    // 当前展示的日期文案
 
 const customStart = ref('')
 const customEnd   = ref('')
@@ -136,9 +143,11 @@ async function loadData() {
       startRange = customStart.value
       endRange = customEnd.value
     } else {
-      const { start, end } = getDateRange(mode.value)
+     // 修改：传入 offset 参数，并接收 label
+      const { start, end, label } = getDateRange(mode.value, periodOffset.value)
       startRange = start
       endRange = end
+      currentPeriodLabel.value = label
     }
 
     records.value = await getRecordsByRange(startRange, endRange)
@@ -152,9 +161,19 @@ async function loadData() {
 
 function switchMode(newMode) { 
   mode.value = newMode 
+  periodOffset.value = 0
 }
 
-watch([mode, customStart, customEnd], loadData)
+function prevPeriod() {
+  periodOffset.value--
+}
+
+function nextPeriod() {
+  if (periodOffset.value < 0) periodOffset.value++ // 防止查看到未来的空白数据
+}
+
+// 修改：监听 periodOffset 的变化，一旦点击前后按钮立刻重新加载数据
+watch([mode, periodOffset, customStart, customEnd], loadData)
 
 onMounted(loadData)
 </script>
@@ -232,7 +251,36 @@ onMounted(loadData)
   font-family: inherit; 
   outline: none;
 }
-
+/* 日期导航器样式 */
+.date-navigator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding: 6px 8px;
+  background: var(--color-muted);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+.period-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-fg);
+  font-feature-settings: "tnum";
+}
+.nav-btn {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  color: var(--color-fg);
+  font-size: 16px; transition: all 0.2s;
+}
+.nav-btn:hover:not(:disabled) { border-color: var(--color-primary); }
+.nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 /* 主体背景为浅灰，凸显白色卡片 */
 .stats-body {
   padding: 20px;
