@@ -1,0 +1,33 @@
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import { VitePWA } from 'vite-plugin-pwa'
+
+export default defineConfig({
+  plugins: [
+    vue(),
+    VitePWA({
+      // 'autoUpdate' 意味着 Service Worker 会在后台自动更新
+      registerType: 'autoUpdate',
+      manifest: {
+        name: 'pomodoro',
+        short_name: '番茄钟',
+        description: '按事件分类的正向计时与数据可视化工具',
+        theme_color: '#e05c4b',
+        background_color: '#1a1a2e',
+        display: 'standalone',  // 安装后像原生App一样，没有浏览器地址栏
+        orientation: 'portrait',
+        icons: [
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' }
+        ]
+      },
+      workbox: {
+        // 预缓存所有构建产物，让App可以完全离线使用
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}']
+      }
+    })
+  ],
+  resolve: {
+    alias: { '@': '/src' }  // 这样可以用 @/db 代替 ../../db，更简洁
+  }
+})
