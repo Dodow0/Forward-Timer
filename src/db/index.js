@@ -1,55 +1,57 @@
 /**
- * db/index.js — 数据库层
- *
- * Dexie.js 是对浏览器 IndexedDB 的封装，让操作变得像 Python 的 SQLAlchemy 一样简洁。
- * IndexedDB 是浏览器内置的本地数据库，数据持久存储在用户设备上，关闭页面后不会消失。
- *
- * 类比关系：
- *   IndexedDB ≈ SQLite 文件
- *   Dexie     ≈ SQLAlchemy ORM
- *   db.table  ≈ 数据库表
+ * db/index.js — 数据库层（Supabase 云端版）
+ * 对外接口与原 Dexie 版本保持一致，其他文件无需改动
  */
 
-import Dexie from 'dexie'
+import { supabase } from '@/lib/supabase'
 
-// 创建数据库实例，'PomodoroApp' 是数据库的名字
-const db = new Dexie('PomodoroApp')
-
-// 定义数据库结构（版本管理，类似数据库 migration）
-// '++id' 表示自增主键，就像 SQL 的 INTEGER PRIMARY KEY AUTOINCREMENT
-// 其他字段名表示建立索引，加快查询速度
-db.version(1).stores({
-  categories: '++id, name, color, icon, createdAt',
-  records:    '++id, categoryId, date, startTime, duration'
-  // date 格式统一用 'YYYY-MM-DD' 字符串，方便范围查询
-})
-
+// 固定的设备标识，只有你自己用不需要区分用户
+const MY_USER_ID = 'my-device'
 // ─────────────────────────────────────────
 // 分类相关操作
 // ─────────────────────────────────────────
 
 export async function getCategories() {
-  return await db.categories.toArray()
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .order('created_at')
+  if (error) throw error
+  return data.map(r => ({
+    id:        r.id,
+    name:      r.name,
+    color:     r.color,
+    createdAt: r.created_at
+  }))
 }
 
-export async function addCategory({ name, color, icon }) {
-  return await db.categories.add({
-    name,
-    color,   // 十六进制颜色字符串，如 '#e05c4b'
-    icon,    // emoji 字符，如 '📚'
-    createdAt: Date.now()
-  })
+export async function addCategory({ name, color }) {
+  const { data, error } = await supabase
+    .from('categories')
+    .insert({ user_id: MY_USER_ID, name, color, created_at: Date.now() })
+    .select()
+    .single()
+  if (error) throw error
+  return data.id
 }
 
 export async function updateCategory(id, changes) {
-  return await db.categories.update(id, changes)
+  const { error } = await supabase
+    .from('categories')
+    .update({
+      ...(changes.name  && { name:  changes.name }),
+      ...(changes.color && { color: changes.color }),
+    })
+    .eq('id', id)
+  if (error) throw error
 }
 
 export async function deleteCategory(id) {
-  // 删除分类时，同时删除该分类下的所有计时记录
-  // 这是数据一致性的基本保障，类似 SQL 的 ON DELETE CASCADE
-  await db.records.where('categoryId').equals(id).delete()
-  await db.categories.delete(id)
+  const { error } = await supabase
+    .from('categories')
+    .delete()
+    .eq('id', id)
+  if (error) throw error
 }
 
 // ─────────────────────────────────────────
@@ -57,27 +59,45 @@ export async function deleteCategory(id) {
 // ─────────────────────────────────────────
 
 export async function addRecord({ categoryId, date, startTime, duration }) {
-  return await db.records.add({ categoryId, date, startTime, duration })
+  const { error } = await supabase
+    .from('records')
+    .insert({
+      user_id:     MY_USER_ID,
+      category_id: categoryId,
+      date,
+      start_time:  startTime,
+      duration
+    })
+  if (error) throw error
 }
 
-/**
- * 按日期范围查询记录，这是统计图表的数据来源
- * @param {string} startDate - 'YYYY-MM-DD'
- * @param {string} endDate   - 'YYYY-MM-DD'
- */
 export async function getRecordsByRange(startDate, endDate) {
-  // Dexie 的 between() 类似 SQL 的 WHERE date BETWEEN startDate AND endDate
-  return await db.records
-    .where('date')
-    .between(startDate, endDate, true, true)  // 两端闭合区间
-    .toArray()
+  const { data, error } = await supabase
+    .from('records')
+    .select('*')
+    .gte('date', startDate)
+    .lte('date', endDate)
+  if (error) throw error
+  return data.map(r => ({
+    id:         r.id,
+    categoryId: r.category_id,
+    date:       r.date,
+    startTime:  r.start_time,
+    duration:   r.duration
+  }))
 }
 
-/**
- * 查询某一天的记录（按日视图用）
- */
 export async function getRecordsByDate(date) {
-  return await db.records.where('date').equals(date).toArray()
+  const { data, error } = await supabase
+    .from('records')
+    .select('*')
+    .eq('date', date)
+  if (error) throw error
+  return data.map(r => ({
+    id:         r.id,
+    categoryId: r.category_id,
+    date:       r.date,
+    startTime:  r.start_time,
+    duration:   r.duration
+  }))
 }
-
-export default db

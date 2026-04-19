@@ -8,17 +8,18 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { getCategories, addCategory, updateCategory, deleteCategory } from '@/db'
+import { supabase } from '@/lib/supabase'  
 
 export const useCategoryStore = defineStore('category', () => {
   const categories = ref([])  // 分类列表，初始为空
 
   // 预置的默认分类，供初次使用的用户直接选择
   const DEFAULT_CATEGORIES = [
-    { name: '工作',   color: '#e05c4b', icon: '💼' },
-    { name: '学习',   color: '#4b8fe0', icon: '📚' },
-    { name: '运动',   color: '#4be075', icon: '🏃' },
-    { name: '娱乐',   color: '#e0c44b', icon: '🎮' },
-    { name: '阅读',   color: '#b44be0', icon: '📖' },
+    { name: '工作',   color: '#e05c4b'},
+    { name: '学习',   color: '#4b8fe0'},
+    { name: '运动',   color: '#4be075'},
+    { name: '娱乐',   color: '#e0c44b'},
+    { name: '阅读',   color: '#b44be0'},
   ]
 
   // 从数据库加载分类，应用启动时调用一次
@@ -34,6 +35,14 @@ export const useCategoryStore = defineStore('category', () => {
     } else {
       categories.value = stored
     }
+        // 新增：实时监听 categories 表变化，任何端增删改都自动同步
+    supabase
+      .channel('categories-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
+        // 有任何变化时重新拉取最新数据
+        getCategories().then(data => { categories.value = data })
+      })
+      .subscribe()
   }
 
   async function add(data) {
