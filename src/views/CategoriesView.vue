@@ -131,8 +131,29 @@ async function handleSave() {
 .picker-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
 .picker-row .label { font-size: 13px; font-weight: 600; color: var(--color-fg-muted); }
 
-.color-dot { width: 32px; height: 32px; border: none; background: none; cursor: pointer; padding: 0; }
-.color-dot::-webkit-color-swatch { border: 2px solid var(--color-border); border-radius: 50%; }
+.color-dot { 
+  appearance: none;
+  -webkit-appearance: none;
+  width: 36px; 
+  height: 36px; 
+  border: none; 
+  background: none; 
+  cursor: pointer; 
+  padding: 0; 
+}
+/* 清除浏览器默认的内部 padding，防止形状被挤压成椭圆 */
+.color-dot::-webkit-color-swatch-wrapper { 
+  padding: 0; 
+}
+/* 改为圆角矩形，与系统整体的 var(--radius-md) 保持协调 */
+.color-dot::-webkit-color-swatch { 
+  border: 2px solid var(--color-border); 
+  border-radius: var(--radius-md); 
+}
+.color-dot::-moz-color-swatch { 
+  border: 2px solid var(--color-border); 
+  border-radius: var(--radius-md); 
+}
 
 .btn { width: 100%; height: 52px; border-radius: var(--radius-md); border: none; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
 .btn--primary { background: var(--color-primary); color: var(--color-bg); }
