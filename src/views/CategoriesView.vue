@@ -9,19 +9,54 @@
 
     <div class="content-body">
       <div class="category-list">
-        <div v-for="cat in categoryStore.categories" :key="cat.id" class="category-item" @click="startEdit(cat)">
-          <div class="item-info">
-            <span class="color-indicator" :style="{ background: cat.color }"></span>
-            <span class="item-name">{{ cat.name }}</span>
+        <!-- 大类循环 -->
+        <div v-for="parent in categoryStore.parentCategories" :key="parent.id" class="parent-group">
+          <!-- 大类行 -->
+          <div class="category-item category-item--parent" @click="startEdit(parent)">
+            <div class="item-info">
+              <button @click.stop="toggleExpand(parent.id)" class="btn-icon btn-expand">
+                <span class="expand-arrow" :class="{ 'is-expanded': isExpanded(parent.id) }">▶</span>
+              </button>
+              <span class="color-indicator" :style="{ background: parent.color }"></span>
+              <span class="item-name">{{ parent.name }}</span>
+            </div>
+            <div class="item-actions">
+              <button @click.stop="startAddChild(parent)" class="btn-icon btn-icon--add" title="添加小类">＋</button>
+              <button @click.stop="confirmDelete(parent)" class="btn-icon" title="删除分类">✕</button>
+            </div>
           </div>
-          <button @click.stop="confirmDelete(cat)" class="btn-icon" title="删除分类">✕</button>
+
+          <!-- 小类列表 -->
+          <div v-show="isExpanded(parent.id)" class="children-list">
+            <div v-for="child in categoryStore.getChildren(parent.id)" :key="child.id"
+                class="category-item category-item--child" @click="startEdit(child)">
+              <div class="item-info">
+                <span class="child-indent"></span>
+                <span class="color-indicator" :style="{ background: child.color }"></span>
+                <span class="item-name">{{ child.name }}</span>
+              </div>
+              <button @click.stop="confirmDelete(child)" class="btn-icon" title="删除">✕</button>
+            </div>
+          </div>
         </div>
       </div>
 
        <div class="add-card" ref="formRef">
-        <h3 class="card-title">{{ isEditing ? '编辑分类' : '新增分类' }}</h3>
+        <h3 class="card-title">{{ isEditing ? '编辑分类' : (newCat.parentId ? '新增小类' : '新增大类') }}</h3>
         <div class="form-group">
-         <input v-model="newCat.name" :placeholder="isEditing ? '修改名称...' : '输入分类名称...'" class="input-minimal" />
+          <input v-model="newCat.name" :placeholder="newCat.parentId ? '输入小类名称...' : '输入大类名称...'" class="input-minimal" />
+          
+          <!-- 所属大类选择（新增时才显示，编辑时不允许改层级） -->
+          <div v-if="!isEditing" class="picker-row">
+            <span class="label">所属大类</span>
+            <select v-model="newCat.parentId" class="select-minimal">
+              <option :value="null">无（作为大类）</option>
+              <option v-for="p in categoryStore.parentCategories" :key="p.id" :value="p.id">
+                {{ p.name }}
+              </option>
+            </select>
+          </div>
+
           <div class="picker-row">
             <span class="label">选择主题色</span>
             <input v-model="newCat.color" type="color" class="color-dot" />
@@ -49,8 +84,27 @@ const formRef = ref(null)
 // 1. 数据结构中移除 icon
 const newCat = ref({
   name: '',
-  color: '#3B82F6'
+  color: '#3B82F6',
+  parentId: null
 })
+// === 新增：控制展开/折叠的状态 ===
+const expandedIds = ref([]) // 存储当前展开的大类 ID
+
+function toggleExpand(id) {
+  const index = expandedIds.value.indexOf(id)
+  if (index > -1) {
+    // 如果已经展开，则移除 ID（折叠）
+    expandedIds.value.splice(index, 1)
+  } else {
+    // 否则加入 ID（展开）
+    expandedIds.value.push(id)
+  }
+}
+
+function isExpanded(id) {
+  return expandedIds.value.includes(id)
+}
+
 function startEdit(cat) {
   isEditing.value = true
   editingId.value = cat.id
@@ -58,10 +112,20 @@ function startEdit(cat) {
   formRef.value?.scrollIntoView({ behavior: 'smooth' })
 }
 
+function startAddChild(parent) {
+  if (!isExpanded(parent.id)) {
+    expandedIds.value.push(parent.id)
+  }
+  isEditing.value = false
+  editingId.value = null
+  newCat.value = { name: '', color: parent.color, parentId: parent.id }
+  formRef.value?.scrollIntoView({ behavior: 'smooth' })
+}
+
 function cancelEdit() {
   isEditing.value = false
   editingId.value = null
-  newCat.value = { name: '', color: '#3B82F6' }
+  newCat.value = { name: '', color: '#3B82F6', parentId: null }
 }
 // 2. 增加删除确认功能
 async function confirmDelete(cat) {
@@ -160,4 +224,59 @@ async function handleSave() {
 .btn--outline { background: transparent; color: var(--color-fg); border: 1.5px solid var(--color-border); margin-top: 8px; }
 .btn--primary:active { transform: scale(0.97); }
 .button-group { display: flex; flex-direction: column; }
+
+.parent-group { margin-bottom: 8px; }
+
+.category-item--parent {
+  background: var(--color-bg);
+  border-left: 3px solid var(--color-primary);
+}
+
+.category-item--child {
+  background: var(--color-muted);
+  margin-left: 16px;
+  border-left: 3px solid var(--color-border);
+}
+
+.children-list { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+
+.child-indent { width: 8px; flex-shrink: 0; }
+
+.item-actions { display: flex; align-items: center; gap: 4px; }
+
+.btn-icon--add {
+  color: var(--color-primary);
+  font-size: 18px;
+}
+
+.select-minimal {
+  background: var(--color-muted);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-fg);
+  cursor: pointer;
+}
+
+/* --- 新增：展开/折叠箭头样式 --- */
+.btn-expand {
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.expand-arrow {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--color-fg-muted);
+  transition: transform 0.2s ease; /* 旋转动画效果 */
+}
+
+/* 展开状态下箭头向下转 90 度 */
+.expand-arrow.is-expanded {
+  transform: rotate(90deg);
+}
 </style>

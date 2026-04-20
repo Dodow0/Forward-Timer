@@ -6,7 +6,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { getCategories, addCategory, updateCategory, deleteCategory } from '@/db'
 import { supabase } from '@/lib/supabase'  
 
@@ -60,10 +60,20 @@ export const useCategoryStore = defineStore('category', () => {
     await loadCategories()
   }
 
+  // 只取大类（parentId 为 null）
+const parentCategories = computed(() =>
+  categories.value.filter(c => c.parentId === null)
+)
+
+// 取某个大类下的小类
+function getChildren(parentId) {
+  return categories.value.filter(c => c.parentId === parentId)
+}
+
   // 根据 id 快速查找分类对象（图表渲染时用）
   function findById(id) {
     return categories.value.find(c => c.id === id)
   }
 
-  return { categories, loadCategories, add, update, remove, findById }
+  return { categories, parentCategories, loadCategories, add, update, remove, findById, getChildren }
 })

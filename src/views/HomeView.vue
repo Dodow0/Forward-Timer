@@ -76,19 +76,55 @@
         </div>
       </transition>
     </section>
-
     <section class="category-section">
       <h2 class="section-label">选择分类</h2>
-      <div class="category-grid">
-        <button v-for="cat in categoryStore.categories" :key="cat.id" 
-                class="category-card" 
-                :class="{ 'category-card--selected': timerStore.selectedCategory?.id === cat.id }" 
-                :disabled="timerStore.isRunning" 
-                @click="selectCategory(cat)">
-          <div class="cat-indicator" :style="{ background: cat.color }"></div>
-          <span class="cat-name">{{ cat.name }}</span>
-        </button>
+
+      <div class="parent-grid">
+        <div v-for="parent in categoryStore.parentCategories" :key="parent.id"
+            class="parent-card"
+            :class="{
+              'parent-card--active': selectedParent?.id === parent.id,
+              'parent-card--selected': timerStore.selectedCategory?.id === parent.id
+            }"
+            :style="timerStore.selectedCategory?.id === parent.id ? { borderColor: parent.color } : {}"
+            @click="selectAsCategory(parent)">
+
+          <div class="card-header">
+            <div class="cat-indicator" :style="{ background: parent.color }"></div>
+
+            <button v-if="categoryStore.getChildren(parent.id).length > 0"
+                    class="btn-expand"
+                    @click.stop="selectParent(parent)">
+              <span class="expand-arrow"
+                    :class="{ 'is-expanded': selectedParent?.id === parent.id }">▶</span>
+            </button>
+
+            <span class="cat-name">{{ parent.name }}</span>
+          </div>
+
+        </div>
       </div>
+
+      <!-- 选中大类后展开小类 -->
+      <template v-if="selectedParent">
+        <div class="children-label">
+          <span class="section-label" style="margin-bottom:0">{{ selectedParent.name }} 的细分</span>
+        </div>
+        <div class="category-grid" style="margin-top: 10px;">
+          <button v-for="child in categoryStore.getChildren(selectedParent.id)" :key="child.id"
+                  class="category-card"
+                  :class="{ 'category-card--selected': timerStore.selectedCategory?.id === child.id }"
+                  :disabled="timerStore.isRunning"
+                  @click="selectCategory(child)">
+            <div class="cat-indicator" :style="{ background: child.color }"></div>
+            <span class="cat-name">{{ child.name }}</span>
+          </button>
+        </div>
+
+        <!-- 如果该大类没有小类，提示去添加 -->
+        <p v-if="categoryStore.getChildren(selectedParent.id).length === 0" 
+          class="no-children-hint">该大类下暂无小类，请前往分类页添加</p>
+      </template>
     </section>
   </div>
 </template>
@@ -108,6 +144,35 @@ const today = computed(() =>
 // UI 选择状态
 const currentMode   = ref('forward') // 'forward' 或 'countdown'
 const targetMinutes = ref(25)        // 默认 25 分钟
+const selectedParent = ref(null)   // 当前选中的大类
+
+function selectParent(parent) {
+  if (timerStore.isRunning) return
+  if (selectedParent.value?.id !== parent.id) {
+    timerStore.selectedCategory = null
+    selectedParent.value = parent
+  } else {
+    // 再次点击同一个大类：收起展开并取消选中
+    selectedParent.value = null
+    timerStore.selectedCategory = null
+  }
+}
+
+function selectCategory(cat) {
+  if (timerStore.isRunning) return
+  // 点击已选中的小类 → 退回到选大类（直接用大类计时）
+  if (timerStore.selectedCategory?.id === cat.id) {
+    timerStore.selectedCategory = selectedParent.value
+  } else {
+    timerStore.selectedCategory = cat
+  }
+}
+
+// 点大类卡片主体 → 直接选为计时分类
+function selectAsCategory(parent) {
+  if (timerStore.isRunning) return
+  timerStore.selectedCategory = timerStore.selectedCategory?.id === parent.id ? null : parent
+}
 
 // 计算未启动时圆环展示的时间
 const defaultDisplayTime = computed(() => {
@@ -117,11 +182,6 @@ const defaultDisplayTime = computed(() => {
   }
   return '00:00'
 })
-
-function selectCategory(cat) {
-  if (timerStore.isRunning) return
-  timerStore.selectedCategory = cat
-}
 
 function startTimer() {
   // 先把模式和时长同步到 store，再调用 start
@@ -276,4 +336,75 @@ onMounted(() => {
 .timer-ring--svg {
   border-color: transparent;
 }
+
+.parent-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.parent-card {
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 8px; padding: 14px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  cursor: pointer; transition: all 0.2s;
+}
+
+.parent-card--active {
+  border-color: var(--color-primary);
+  background: var(--color-muted);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.parent-card:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.children-label {
+  display: flex; align-items: center;
+  padding: 8px 0 4px;
+  border-top: 1px solid var(--color-border);
+  margin-top: 4px;
+}
+
+.no-children-hint {
+  font-size: 12px; color: var(--color-fg-muted);
+  padding: 12px 0; text-align: center;
+}
+
+.parent-card--selected {
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+/* --- 新增大类卡片顶部布局 --- */
+.card-header {
+  display: flex;
+  justify-content: space-between; /* 左右两端对齐 */
+  align-items: center;
+  width: 100%;
+}
+
+.btn-expand {
+  padding: 4px;
+  margin: -4px; /* 稍微外扩一点，增大点击热区，但不撑大卡片 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.expand-arrow {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--color-fg-muted);
+  transition: transform 0.2s ease;
+}
+
+/* 展开状态向下旋转 90 度 */
+.expand-arrow.is-expanded {
+  transform: rotate(90deg);
+}
+
 </style>

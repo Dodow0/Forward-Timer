@@ -21,14 +21,15 @@ export async function getCategories() {
     id:        r.id,
     name:      r.name,
     color:     r.color,
+    parentId:  r.parent_id ?? null,
     createdAt: r.created_at
   }))
 }
 
-export async function addCategory({ name, color }) {
+export async function addCategory({ name, color, parentId = null }) {
   const { data, error } = await supabase
     .from('categories')
-    .insert({ user_id: MY_USER_ID, name, color, created_at: Date.now() })
+    .insert({ user_id: MY_USER_ID, name, color, parent_id: parentId, created_at: Date.now() })
     .select()
     .single()
   if (error) throw error
@@ -41,6 +42,7 @@ export async function updateCategory(id, changes) {
     .update({
       ...(changes.name  && { name:  changes.name }),
       ...(changes.color && { color: changes.color }),
+      ...(changes.parentId !== undefined && { parent_id: changes.parentId }),
     })
     .eq('id', id)
   if (error) throw error

@@ -50,8 +50,14 @@
         </div>
 
         <div class="chart-card">
-          <h3 class="chart-title">分类占比</h3>
-          <PieChart :data="pieData" />
+          <div class="pie-header">
+            <h3 class="chart-title" style="margin-bottom:0">分类占比</h3>
+            <div class="pie-toggle">
+              <button class="pie-toggle-btn" :class="{ active: pieView === 'parent' }" @click="pieView = 'parent'">大类</button>
+              <button class="pie-toggle-btn" :class="{ active: pieView === 'child' }"  @click="pieView = 'child'">小类</button>
+            </div>
+          </div>
+          <PieChart :data="pieView === 'parent' ? parentPieData : pieData" />
         </div>
 
         <div class="chart-card" v-if="mode !== 'day'">
@@ -130,6 +136,7 @@ const categoryStore = useCategoryStore()
 const mode    = ref('day')
 const records = ref([])
 const loading = ref(false)
+const pieView = ref('parent')  // 'parent' | 'child'
 const expandedDates = ref(new Set())   // 当前展开的日期集合
 const pendingDelete = ref(null)        // 待确认删除的记录
 const periodOffset = ref(0)           // 周期偏移量
@@ -149,10 +156,34 @@ const hasData = computed(() => records.value.length > 0)
 const totalDuration = computed(() => records.value.reduce((sum, r) => sum + r.duration, 0))
 const totalDurationText = computed(() => formatDuration(totalDuration.value))
 
+// 小类饼图（直接按记录的 categoryId 聚合）
 const pieData = computed(() => {
   const byCategory = groupByCategory(records.value)
   return Object.entries(byCategory).map(([catId, duration]) => {
     const cat = categoryStore.findById(Number(catId))
+    return {
+      name:      cat?.name ?? '未知',
+      value:     duration,
+      itemStyle: { color: cat?.color ?? '#888' }
+    }
+  })
+})
+
+// 大类饼图（把小类的时长归并到其父类）
+const parentPieData = computed(() => {
+  const byCategory = groupByCategory(records.value)
+  const parentMap = {}
+  for (const [catId, duration] of Object.entries(byCategory)) {
+    const cat = categoryStore.findById(Number(catId))
+    if (!cat) continue
+    // 如果是小类，归并到父类；如果是大类，直接用自己
+    const parentId = cat.parentId ?? cat.id
+    const parent   = categoryStore.findById(parentId)
+    if (!parent) continue
+    parentMap[parentId] = (parentMap[parentId] || 0) + duration
+  }
+  return Object.entries(parentMap).map(([parentId, duration]) => {
+    const cat = categoryStore.findById(Number(parentId))
     return {
       name:      cat?.name ?? '未知',
       value:     duration,
@@ -497,4 +528,22 @@ onMounted(loadData)
 .btn:active { transform: scale(0.96); }
 .btn--outline { background: transparent; border: 2px solid var(--color-border); color: var(--color-fg); }
 .btn--danger { background: #ff4d4f; color: #fff; }
+
+.pie-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px;
+}
+.pie-toggle {
+  display: inline-flex; background: var(--color-muted);
+  padding: 3px; border-radius: 6px;
+}
+.pie-toggle-btn {
+  padding: 4px 14px; border-radius: 4px; border: none;
+  font-size: 12px; font-weight: 600; color: var(--color-fg-muted);
+  background: transparent; cursor: pointer; transition: all 0.2s;
+}
+.pie-toggle-btn.active {
+  background: var(--color-bg); color: var(--color-fg);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
 </style>
