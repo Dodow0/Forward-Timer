@@ -63,7 +63,56 @@
           <h3 class="chart-title">本月热力图</h3>
           <Heatmap :data="heatmapData" />
         </div>
+        <!-- 计时记录列表 -->
+        <div class="chart-card records-card">
+          <div class="records-header">
+            <h3 class="chart-title" style="margin-bottom:0">计时记录</h3>
+          </div>
+
+          <div v-for="group in groupedRecords" :key="group.date" class="day-group">
+            <!-- 日期行，点击展开/收起 -->
+            <div class="day-header" @click="toggleGroup(group.date)">
+              <div class="day-header-left">
+                <span class="day-toggle">{{ expandedDates.has(group.date) ? '▾' : '▸' }}</span>
+                <span class="day-label">{{ formatDate(group.date) }}</span>
+              </div>
+              <span class="day-total">{{ formatDur(group.total) }}</span>
+            </div>
+
+            <!-- 展开后的记录列表 -->
+            <div v-if="expandedDates.has(group.date)" class="day-records">
+              <div v-for="record in group.records" :key="record.id" class="record-row">
+                <div class="record-left">
+                  <div class="cat-dot" :style="{ background: getCategoryColor(record.categoryId) }"></div>
+                  <div class="record-info">
+                    <span class="record-cat">{{ getCategoryName(record.categoryId) }}</span>
+                    <span class="record-time">{{ formatStartTime(record.startTime) }}</span>
+                  </div>
+                </div>
+                <div class="record-right">
+                  <span class="record-duration">{{ formatDur(record.duration) }}</span>
+                  <button class="delete-btn" @click.stop="confirmDelete(record)">✕</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </template>
+      <!-- 删除确认弹窗 -->
+    <transition name="fade">
+      <div v-if="pendingDelete" class="overlay">
+        <div class="confirm-card">
+          <p class="confirm-title">删除这条记录？</p>
+          <p class="confirm-sub">
+            {{ getCategoryName(pendingDelete.categoryId) }} · {{ formatDur(pendingDelete.duration) }}
+          </p>
+          <div class="confirm-actions">
+            <button class="btn btn--outline" @click="pendingDelete = null">取消</button>
+            <button class="btn btn--danger" @click="doDelete">删除</button>
+          </div>
+        </div>
+      </div>
+    </transition>
     </div>
   </div>
 </template>
@@ -74,13 +123,15 @@ import PieChart  from '@/components/charts/PieChart.vue'
 import BarChart  from '@/components/charts/BarChart.vue'
 import Heatmap   from '@/components/charts/Heatmap.vue'
 import { useCategoryStore } from '@/stores/categoryStore'
-import { getRecordsByRange } from '@/db'
+import { getRecordsByRange, deleteRecord} from '@/db'
 import { getDateRange, groupByCategory, groupByDate, formatDuration } from '@/utils/dateHelpers'
 
 const categoryStore = useCategoryStore()
 const mode    = ref('day')
 const records = ref([])
 const loading = ref(false)
+const expandedDates = ref(new Set())   // 当前展开的日期集合
+const pendingDelete = ref(null)        // 待确认删除的记录
 const periodOffset = ref(0)           // 周期偏移量
 const currentPeriodLabel = ref('')    // 当前展示的日期文案
 
@@ -174,7 +225,65 @@ function nextPeriod() {
 
 // 修改：监听 periodOffset 的变化，一旦点击前后按钮立刻重新加载数据
 watch([mode, periodOffset, customStart, customEnd], loadData)
+// ── 记录列表相关 ──
 
+const groupedRecords = computed(() => {
+  const map = {}
+  for (const r of records.value) {
+    if (!map[r.date]) map[r.date] = { date: r.date, records: [], total: 0 }
+    map[r.date].records.push(r)
+    map[r.date].total += r.duration
+  }
+  return Object.values(map)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map(g => ({ ...g, records: g.records.sort((a, b) => b.startTime - a.startTime) }))
+})
+
+function toggleGroup(date) {
+  const s = new Set(expandedDates.value)
+  s.has(date) ? s.delete(date) : s.add(date)
+  expandedDates.value = s
+}
+
+function confirmDelete(record) {
+  pendingDelete.value = record
+}
+
+async function doDelete() {
+  if (!pendingDelete.value) return
+  await deleteRecord(pendingDelete.value.id)
+  records.value = records.value.filter(r => r.id !== pendingDelete.value.id)
+  pendingDelete.value = null
+}
+
+function getCategoryName(id) {
+  return categoryStore.findById(id)?.name ?? '已删除分类'
+}
+
+function getCategoryColor(id) {
+  return categoryStore.findById(id)?.color ?? '#ccc'
+}
+
+function formatDur(seconds) {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+  if (h > 0) return `${h}h ${m}m`
+  if (m > 0) return `${m}m ${s}s`
+  return `${s}s`
+}
+
+function formatDate(dateStr) {
+  const today     = new Date().toISOString().slice(0, 10)
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+  if (dateStr === today)     return '今天'
+  if (dateStr === yesterday) return '昨天'
+  return new Date(dateStr).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })
+}
+
+function formatStartTime(ts) {
+  return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
 onMounted(loadData)
 </script>
 
@@ -331,4 +440,61 @@ onMounted(loadData)
   color: var(--color-fg-muted);
   margin-bottom: 16px;
 }
+
+/* 记录列表 */
+.records-card { padding: 16px 20px; }
+.records-header { margin-bottom: 12px; }
+
+.day-group { border-bottom: 1px solid var(--color-border); }
+.day-group:last-child { border-bottom: none; }
+
+.day-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 0; cursor: pointer; user-select: none;
+}
+.day-header:hover { opacity: 0.75; }
+.day-header-left { display: flex; align-items: center; gap: 6px; }
+.day-toggle { font-size: 11px; color: var(--color-fg-muted); width: 12px; }
+.day-label { font-size: 13px; font-weight: 700; color: var(--color-fg); }
+.day-total { font-size: 12px; color: var(--color-fg-muted); }
+
+.day-records { display: flex; flex-direction: column; gap: 6px; padding-bottom: 10px; }
+
+.record-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 12px; border-radius: 10px; background: var(--color-muted);
+}
+.record-left { display: flex; align-items: center; gap: 10px; }
+.cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.record-info { display: flex; flex-direction: column; gap: 1px; }
+.record-cat { font-size: 13px; font-weight: 700; color: var(--color-fg); }
+.record-time { font-size: 11px; color: var(--color-fg-muted); }
+.record-right { display: flex; align-items: center; gap: 10px; }
+.record-duration { font-size: 14px; font-weight: 700; color: var(--color-fg); font-variant-numeric: tabular-nums; }
+
+.delete-btn {
+  width: 24px; height: 24px; border-radius: 50%; border: none;
+  background: transparent; color: var(--color-fg-muted);
+  font-size: 11px; cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center;
+}
+.delete-btn:hover { background: #ff4d4f22; color: #ff4d4f; }
+
+/* 删除确认弹窗 */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.confirm-card {
+  background: var(--color-bg); border-radius: 20px;
+  padding: 32px 28px; width: 280px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+}
+.confirm-title { font-size: 18px; font-weight: 800; color: var(--color-fg); margin: 0; }
+.confirm-sub { font-size: 13px; color: var(--color-fg-muted); margin: 0 0 8px; }
+.confirm-actions { display: flex; gap: 12px; width: 100%; margin-top: 8px; }
+.btn { flex: 1; height: 46px; border-radius: var(--radius-md); border: none; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.btn:active { transform: scale(0.96); }
+.btn--outline { background: transparent; border: 2px solid var(--color-border); color: var(--color-fg); }
+.btn--danger { background: #ff4d4f; color: #fff; }
 </style>

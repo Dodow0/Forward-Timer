@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       manifest: {
         name: 'pomodoro',
-        short_name: '番茄钟',
+        short_name: 'timer',
         description: '按事件分类的正向计时与数据可视化工具',
-        theme_color: '#e05c4b',
+        theme_color: '#369190',
         background_color: '#1a1a2e',
         display: 'standalone',  // 安装后像原生App一样，没有浏览器地址栏
         orientation: 'portrait',

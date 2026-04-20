@@ -101,3 +101,11 @@ export async function getRecordsByDate(date) {
     duration:   r.duration
   }))
 }
+// 删除单条计时记录
+export async function deleteRecord(id) {
+  const { error } = await supabase
+    .from('records')
+    .delete()
+    .eq('id', id)
+  if (error) throw error
+}
