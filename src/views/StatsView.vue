@@ -90,10 +90,10 @@
               <div v-for="record in group.records" :key="record.id" class="record-row">
                 <div class="record-left">
                   <div class="cat-dot" :style="{ background: getCategoryColor(record.categoryId) }"></div>
-                  <div class="record-info">
-                    <span class="record-cat">{{ getCategoryName(record.categoryId) }}</span>
-                    <span class="record-time">{{ formatStartTime(record.startTime) }}</span>
-                  </div>
+                 <div class="record-info">
+                  <span class="record-cat">{{ getCategoryName(record.categoryId) }}</span>
+                  <span class="record-time">{{ formatTimeRange(record.startTime, record.duration) }}</span>
+                </div>
                 </div>
                 <div class="record-right">
                   <span class="record-duration">{{ formatDur(record.duration) }}</span>
@@ -312,8 +312,17 @@ function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })
 }
 
-function formatStartTime(ts) {
-  return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+function formatTimeRange(startTimeMs, durationSec) {
+  // 计算开始时间和结束时间对象
+  const start = new Date(startTimeMs)
+  const end = new Date(startTimeMs + durationSec * 1000)
+  
+  // 分别格式化为 HH:MM
+  const startStr = start.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  const endStr = end.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  
+  // 返回拼接后的字符串
+  return `${startStr} - ${endStr}`
 }
 onMounted(loadData)
 </script>
