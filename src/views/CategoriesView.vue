@@ -19,6 +19,9 @@
               </button>
               <span class="color-indicator" :style="{ background: parent.color }"></span>
               <span class="item-name">{{ parent.name }}</span>
+              <span v-if="durationMap[parent.id]" class="time-badge">
+                {{ formatDuration(durationMap[parent.id]) }}
+              </span>
             </div>
             <div class="item-actions">
               <button @click.stop="startAddChild(parent)" class="btn-icon btn-icon--add" title="添加小类">＋</button>
@@ -34,6 +37,9 @@
                 <span class="child-indent"></span>
                 <span class="color-indicator" :style="{ background: child.color }"></span>
                 <span class="item-name">{{ child.name }}</span>
+                <span v-if="durationMap[child.id]" class="time-badge">
+                  {{ formatDuration(durationMap[child.id]) }}
+                </span>
               </div>
               <button @click.stop="confirmDelete(child)" class="btn-icon" title="删除">✕</button>
             </div>
@@ -73,10 +79,30 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useCategoryStore } from '@/stores/categoryStore'
+import { getTotalDurationByCategory } from '@/db'
+import { formatDuration } from '@/utils/dateHelpers'
 
 const categoryStore = useCategoryStore()
+const durationMap = ref({}) // { [categoryId]: seconds }
+
+onMounted(async () => {
+  // 1. 先拿到后端原始数据
+  const rawData = await getTotalDurationByCategory()
+  
+  // 2. 把小类的时长归并到父类显示
+  for (const cat of categoryStore.categories) {
+    if (cat.parentId !== null) {
+      rawData[cat.parentId] = 
+        (rawData[cat.parentId] || 0) + (rawData[cat.id] || 0)
+    }
+  }
+
+  // 3. 最后一次性赋值给响应式变量，触发视图更新
+  durationMap.value = rawData
+})
+
 const isEditing = ref(false)
 const editingId = ref(null)
 const formRef = ref(null)
@@ -278,5 +304,25 @@ async function handleSave() {
 /* 展开状态下箭头向下转 90 度 */
 .expand-arrow.is-expanded {
   transform: rotate(90deg);
+}
+
+/* 新增：时长标签样式 */
+.time-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-fg-muted);
+  background: var(--color-muted);
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-left: 8px;
+  /* 使用等宽数字防止时长变化时文字抖动 */
+  font-feature-settings: "tnum";
+  opacity: 0.8;
+}
+
+/* 如果是在小类中，字体可以再稍微小一点以示区分 */
+.category-item--child .time-badge {
+  font-size: 10px;
+  opacity: 0.6;
 }
 </style>

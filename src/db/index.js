@@ -111,3 +111,17 @@ export async function deleteRecord(id) {
     .eq('id', id)
   if (error) throw error
 }
+
+export async function getTotalDurationByCategory() {
+  // rpc 的第一个参数是函数名，和你在 SQL 里定义的名字完全一致
+  const { data, error } = await supabase.rpc('get_duration_by_category')
+  if (error) throw error
+
+  // data 是一个数组，每个元素对应函数返回表格的一行
+  // 例如：[{ category_id: 1, total_duration: 3600 }, ...]
+  // 我们把它转成 { [categoryId]: seconds } 的对象，方便前端查找
+  return data.reduce((map, row) => {
+    map[row.category_id] = row.total_duration
+    return map
+  }, {})
+}
