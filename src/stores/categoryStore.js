@@ -108,5 +108,5 @@ function getChildren(parentId) {
         ?? allCategories.value.find(c => c.id === id)
   }
 
-  return { categories, allCategories, parentCategories, loadCategories, add, update, remove, archive, unarchive, findById, getChildren }
+  return { categories, allCategories, parentCategories, childrenMap, loadCategories, add, update, remove, archive, unarchive, findById, getChildren }
 })

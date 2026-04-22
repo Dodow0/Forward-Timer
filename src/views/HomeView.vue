@@ -95,8 +95,12 @@
             <button v-if="categoryStore.getChildren(parent.id).length > 0"
                     class="btn-expand"
                     @click.stop="selectParent(parent)">
-              <span class="expand-arrow"
-                    :class="{ 'is-expanded': selectedParent?.id === parent.id }">▶</span>
+            <ChevronRight 
+                class="expand-arrow" 
+                :class="{ 'is-expanded': selectedParent?.id === parent.id }" 
+                :size="16" 
+                :stroke-width="2" 
+              />
             </button>
 
             <span class="cat-name">{{ parent.name }}</span>
@@ -130,6 +134,7 @@
 </template>
 
 <script setup>
+import { ChevronRight } from 'lucide-vue-next'
 import { ref, computed, onMounted  } from 'vue'
 import { useTimerStore } from '@/stores/timerStore'
 import { useCategoryStore } from '@/stores/categoryStore'

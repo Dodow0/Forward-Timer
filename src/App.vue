@@ -10,20 +10,21 @@
 
     <nav class="bottom-nav">
       <router-link to="/timer" class="nav-item" active-class="active">
-        <span class="nav-icon">⏱</span>
+        <Timer class="nav-icon" :size="22" :stroke-width="2" />
         <span class="nav-label">计时</span>
       </router-link>
       <router-link to="/stats" class="nav-item" active-class="active">
-        <span class="nav-icon">📊</span>
+        <BarChart2 class="nav-icon" :size="22" :stroke-width="2" />
         <span class="nav-label">统计</span>
       </router-link>
       <router-link to="/categories" class="nav-item" active-class="active">
-        <span class="nav-icon">🏷</span>
+        <LayoutGrid class="nav-icon" :size="22" :stroke-width="2" />
         <span class="nav-label">分类</span>
       </router-link>
       
       <button @click="toggleDarkMode" class="theme-toggle" aria-label="切换深色模式">
-        {{ isDark ? '☀️' : '🌙' }}
+        <Sun v-if="!isDark" :size="20" :stroke-width="2" />
+        <Moon v-else :size="20" :stroke-width="2" />
       </button>
     </nav>
   </div>
@@ -32,6 +33,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useCategoryStore } from '@/stores/categoryStore'
+import { Timer, BarChart2, LayoutGrid, Sun, Moon } from 'lucide-vue-next'
 
 const categoryStore = useCategoryStore()
 
@@ -117,8 +119,9 @@ onMounted(() => {
 }
 
 .nav-icon {
-  font-size: 20px;
   transition: transform 0.2s;
+  /* 确保图标颜色跟随父元素的 color 变化 */
+  color: inherit; 
 }
 
 .nav-item.active .nav-icon {
@@ -143,6 +146,7 @@ onMounted(() => {
   cursor: pointer;
   transition: all 0.2s ease;
   z-index: 100;
+  color: var(--color-fg);
 }
 
 .theme-toggle:hover {

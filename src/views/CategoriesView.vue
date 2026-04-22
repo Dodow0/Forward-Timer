@@ -7,247 +7,142 @@
       </div>
     </header>
 
-<div class="content-body">
-  <div class="category-list">
-    <!-- 大类循环 -->
-    <div
-      v-for="parent in categoryStore.parentCategories"
-      :key="parent.id"
-      class="parent-group"
-    >
-      <!-- 大类行 -->
-      <div class="category-item category-item--parent">
-        <div class="item-info" @click="startEdit(parent)">
-          <button
-            @click.stop="toggleExpand(parent.id)"
-            class="btn-icon btn-expand"
-          >
-            <span
-              class="expand-arrow"
-              :class="{ 'is-expanded': isExpanded(parent.id) }"
-              >▶</span
-            >
-          </button>
+    <div class="content-body">
+      <div class="category-list">
+        <div v-for="parent in categoryStore.parentCategories" :key="parent.id" class="parent-group">
+          <div class="category-item category-item--parent">
+            <div class="item-info" @click="startEdit(parent)">
+              <button @click.stop="toggleExpand(parent.id)" class="btn-icon btn-expand">
+                <ChevronRight class="expand-arrow" :class="{ 'is-expanded': isExpanded(parent.id) }" :size="16" :stroke-width="2" />
+              </button>
 
-          <span
-            class="color-indicator"
-            :style="{ background: parent.color }"
-          ></span>
+              <span class="color-indicator" :style="{ background: parent.color }"></span>
+              <span class="item-name">{{ parent.name }}</span>
 
-          <span class="item-name">{{ parent.name }}</span>
+              <span v-if="durationMap[parent.id] !== undefined" class="time-badge">
+                {{ formatDuration(durationMap[parent.id]) }}
+              </span>
+            </div>
 
-          <span
-            v-if="durationMap[parent.id] !== undefined"
-            class="time-badge"
-          >
-            {{ formatDuration(durationMap[parent.id]) }}
-          </span>
-        </div>
-
-        <div class="item-actions">
-          <button
-            @click.stop="startAddChild(parent)"
-            class="btn-icon btn-icon--add"
-            title="添加小类"
-          >
-            ＋
-          </button>
-
-          <button
-           @click.stop="confirmArchive(parent)"
-            class="btn-icon btn-icon--archive"
-            title="归档分类"
-          >
-            📦
-          </button>
-
-          <button
-            @click.stop="confirmDelete(parent)"
-            class="btn-icon"
-            title="删除分类"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-
-      <!-- 小类列表 -->
-      <div v-if="isExpanded(parent.id)" class="children-list">
-        <div
-          v-for="child in (categoryStore.childrenMap?.[parent.id] || [])"
-          :key="child.id"
-          class="category-item category-item--child"
-        >
-          <div class="item-info" @click="startEdit(child)">
-            <span class="child-indent"></span>
-
-            <span
-              class="color-indicator"
-              :style="{ background: child.color }"
-            ></span>
-
-            <span class="item-name">{{ child.name }}</span>
-
-            <span
-              v-if="durationMap[child.id] !== undefined"
-              class="time-badge"
-            >
-              {{ formatDuration(durationMap[child.id]) }}
-            </span>
+            <div class="item-actions">
+              <button @click.stop="startAddChild(parent)" class="btn-icon btn-icon--add" title="添加小类">
+                <Plus :size="18" :stroke-width="2" />
+              </button>
+              <button @click.stop="confirmArchive(parent)" class="btn-icon btn-icon--archive" title="归档分类">
+                <Archive :size="18" :stroke-width="2" />
+              </button>
+              <button @click.stop="confirmDelete(parent)" class="btn-icon" title="删除分类">
+                <Trash2 :size="18" :stroke-width="2" />
+              </button>
+            </div>
           </div>
 
-          <button
-            @click.stop="confirmDelete(child)"
-            class="btn-icon"
-            title="删除"
-          >
-            ✕
-          </button>
+          <div v-if="isExpanded(parent.id)" class="children-list">
+            <div v-for="child in (categoryStore.childrenMap?.[parent.id] || [])" :key="child.id" class="category-item category-item--child">
+              <div class="item-info" @click="startEdit(child)">
+                <span class="child-indent"></span>
+                <span class="color-indicator" :style="{ background: child.color }"></span>
+                <span class="item-name">{{ child.name }}</span>
+                <span v-if="durationMap[child.id] !== undefined" class="time-badge">
+                  {{ formatDuration(durationMap[child.id]) }}
+                </span>
+              </div>
+
+              <button @click.stop="confirmDelete(child)" class="btn-icon" title="删除">
+                <Trash2 :size="18" :stroke-width="2" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- 表单 -->
-  <div class="add-card" ref="formRef">
-    <h3 class="card-title">
-      {{ isEditing ? '编辑分类' : (newCat.parentId ? '新增小类' : '新增大类') }}
-    </h3>
+      <div class="add-card" ref="formRef">
+        <h3 class="card-title">
+          {{ isEditing ? '编辑分类' : (newCat.parentId ? '新增小类' : '新增大类') }}
+        </h3>
 
-    <div class="form-group">
-      <input
-        v-model="newCat.name"
-        :placeholder="newCat.parentId ? '输入小类名称...' : '输入大类名称...'"
-        class="input-minimal"
-      />
+        <div class="form-group">
+          <input v-model="newCat.name" :placeholder="newCat.parentId ? '输入小类名称...' : '输入大类名称...'" class="input-minimal" />
 
-      <!-- 所属大类选择 -->
-      <div v-if="!isEditing" class="picker-row">
-        <span class="label">所属大类</span>
+          <div v-if="!isEditing" class="picker-row">
+            <span class="label">所属大类</span>
+            <select v-model="newCat.parentId" class="select-minimal">
+              <option :value="undefined">无（作为大类）</option>
+              <option v-for="p in categoryStore.parentCategories" :key="p.id" :value="p.id">
+                {{ p.name }}
+              </option>
+            </select>
+          </div>
 
-        <select v-model="newCat.parentId" class="select-minimal">
-          <option :value="undefined">无（作为大类）</option>
+          <div class="picker-row">
+            <span class="label">选择主题色</span>
+            <input v-model="newCat.color" type="color" class="color-dot" />
+          </div>
 
-          <option
-            v-for="p in categoryStore.parentCategories"
-            :key="p.id"
-            :value="p.id"
-          >
-            {{ p.name }}
-          </option>
-        </select>
+          <div class="button-group">
+            <button @click="handleSave" class="btn btn--primary">
+              {{ isEditing ? '保存修改' : '确认添加' }}
+            </button>
+            <button v-if="isEditing" @click="cancelEdit" class="btn btn--outline">
+              取消
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div class="picker-row">
-        <span class="label">选择主题色</span>
-        <input v-model="newCat.color" type="color" class="color-dot" />
-      </div>
-
-      <div class="button-group">
-        <button @click="handleSave" class="btn btn--primary">
-          {{ isEditing ? '保存修改' : '确认添加' }}
+      <div class="archive-section">
+        <button class="archive-toggle" @click="showArchived = !showArchived">
+          <span>已归档分类（{{ archivedList.length }}）</span>
+          <ChevronRight class="expand-arrow" :class="{ 'is-expanded': showArchived }" :size="16" :stroke-width="2" />
         </button>
 
-        <button
-          v-if="isEditing"
-          @click="cancelEdit"
-          class="btn btn--outline"
-        >
-          取消
-        </button>
-      </div>
-    </div>
-  </div>
+        <div v-if="showArchived" class="archived-list">
+          <p v-if="archivedList.length === 0" class="empty-hint">暂无归档分类</p>
+          <div v-for="cat in archivedList" :key="cat.id" class="category-item category-item--archived">
+            <div class="item-info">
+              <span class="color-indicator" :style="{ background: cat.color }"></span>
+              <span class="item-name">{{ cat.name }}</span>
+              <span class="parent-hint" v-if="cat.parentId">
+                {{ categoryStore.findById(cat.parentId)?.name }}
+              </span>
+            </div>
 
-  <!-- 归档区域 -->
-  <div class="archive-section">
-    <button
-      class="archive-toggle"
-      @click="showArchived = !showArchived"
-    >
-      <span>已归档分类（{{ archivedList.length }}）</span>
-
-      <span
-        class="expand-arrow"
-        :class="{ 'is-expanded': showArchived }"
-        >▶</span
-      >
-    </button>
-
-    <div v-if="showArchived" class="archived-list">
-      <p v-if="archivedList.length === 0" class="empty-hint">
-        暂无归档分类
-      </p>
-
-      <div
-        v-for="cat in archivedList"
-        :key="cat.id"
-        class="category-item category-item--archived"
-      >
-        <div class="item-info">
-          <span
-            class="color-indicator"
-            :style="{ background: cat.color }"
-          ></span>
-
-          <span class="item-name">{{ cat.name }}</span>
-
-          <span class="parent-hint" v-if="cat.parentId">
-            {{ categoryStore.findById(cat.parentId)?.name }}
-          </span>
-        </div>
-
-        <div class="item-actions">
-          <button
-            @click="categoryStore.unarchive(cat.id)"
-            class="btn-icon btn-icon--restore"
-            title="恢复分类"
-          >
-            ↩
-          </button>
-
-          <button
-            @click="confirmDelete(cat)"
-            class="btn-icon"
-            title="永久删除"
-          >
-            ✕
-          </button>
+            <div class="item-actions">
+              <button @click="categoryStore.unarchive(cat.id)" class="btn-icon btn-icon--restore" title="恢复分类">
+                <RotateCcw :size="18" :stroke-width="2" />
+              </button>
+              <button @click="confirmDelete(cat)" class="btn-icon" title="永久删除">
+                <Trash2 :size="18" :stroke-width="2" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
-</div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useCategoryStore } from '@/stores/categoryStore'
-import { getTotalDurationByCategory, getAllCategories } from '@/db'
+import { getTotalDurationByCategory } from '@/db'
 import { formatDuration } from '@/utils/dateHelpers'
+import { ChevronRight, Plus, Archive, Trash2, RotateCcw } from 'lucide-vue-next'
 
 const categoryStore = useCategoryStore()
-const durationMap = ref({}) // { [categoryId]: seconds }
+const durationMap = ref({}) 
 const showArchived = ref(false) 
-const archivedList = computed(() =>
-  categoryStore.allCategories.filter(c => c.archived)
-)
+const archivedList = computed(() => categoryStore.allCategories.filter(c => c.archived))
 
 onMounted(async () => {
   await categoryStore.loadCategories()
-  // 1. 先拿到后端原始数据
   const rawData = await getTotalDurationByCategory()
   
-  // 2. 把小类的时长归并到父类显示
   for (const cat of categoryStore.categories) {
     if (cat.parentId !== null) {
-      rawData[cat.parentId] = 
-        (rawData[cat.parentId] || 0) + (rawData[cat.id] || 0)
+      rawData[cat.parentId] = (rawData[cat.parentId] || 0) + (rawData[cat.id] || 0)
     }
   }
-
-  // 3. 最后一次性赋值给响应式变量，触发视图更新
   durationMap.value = rawData
 })
 
@@ -255,22 +150,19 @@ const isEditing = ref(false)
 const editingId = ref(null)
 const formRef = ref(null)
 
-// 1. 数据结构中移除 icon
 const newCat = ref({
   name: '',
   color: '#3B82F6',
   parentId: null
 })
-// === 新增：控制展开/折叠的状态 ===
-const expandedIds = ref([]) // 存储当前展开的大类 ID
+
+const expandedIds = ref([])
 
 function toggleExpand(id) {
   const index = expandedIds.value.indexOf(id)
   if (index > -1) {
-    // 如果已经展开，则移除 ID（折叠）
     expandedIds.value.splice(index, 1)
   } else {
-    // 否则加入 ID（展开）
     expandedIds.value.push(id)
   }
 }
@@ -302,7 +194,6 @@ function cancelEdit() {
   newCat.value = { name: '', color: '#3B82F6', parentId: null }
 }
 
-// 新增归档确认功能
 async function confirmArchive(cat) {
   const confirmed = window.confirm(
     `📦 确定要归档“${cat.name}”吗？\n\n归档后的分类将移动到页面底部的“已归档分类”列表中。`
@@ -312,7 +203,6 @@ async function confirmArchive(cat) {
   }
 }
 
-// 2. 增加删除确认功能
 async function confirmDelete(cat) {
   const confirmed = window.confirm(
     `🚨 确定要删除“${cat.name}”吗？\n\n删除分类会同时抹除该分类下的所有计时记录，此操作不可逆！`
@@ -337,7 +227,6 @@ async function handleSave() {
 <style scoped>
 .categories-view { min-height: 100vh; background: var(--color-muted); }
 .page-header { padding: 32px 20px 20px; background: var(--color-bg); border-bottom: 1px solid var(--color-border); }
-
 .content-body { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
 
 .category-item {
@@ -349,24 +238,24 @@ async function handleSave() {
 }
 
 .item-info { display: flex; align-items: center; gap: 16px; }
-
-/* 代替图标的颜色指示器 */
-.color-indicator { 
-  width: 4px; height: 18px; border-radius: 2px;
-}
-
+.color-indicator { width: 4px; height: 18px; border-radius: 2px; }
 .item-name { font-weight: 700; font-size: 15px; color: var(--color-fg); }
 
+/* 图标按钮居中修正 */
 .btn-icon { 
-  color: var(--color-fg-muted); background: none; border: none; 
-  padding: 8px; cursor: pointer; font-size: 16px; transition: color 0.2s;
+  color: var(--color-fg-muted); 
+  background: none; 
+  border: none; 
+  padding: 8px; 
+  cursor: pointer; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
 }
 .btn-icon:hover { color: #ef4444; }
 
-.add-card { 
-  background: var(--color-bg); padding: 24px; 
-  border: 1px solid var(--color-border); border-radius: var(--radius-md); 
-}
+.add-card { background: var(--color-bg); padding: 24px; border: 1px solid var(--color-border); border-radius: var(--radius-md); }
 .card-title { font-size: 12px; font-weight: 700; color: var(--color-fg-muted); margin-bottom: 16px; text-transform: uppercase; }
 
 .input-minimal {
@@ -380,29 +269,10 @@ async function handleSave() {
 .picker-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
 .picker-row .label { font-size: 13px; font-weight: 600; color: var(--color-fg-muted); }
 
-.color-dot { 
-  appearance: none;
-  -webkit-appearance: none;
-  width: 36px; 
-  height: 36px; 
-  border: none; 
-  background: none; 
-  cursor: pointer; 
-  padding: 0; 
-}
-/* 清除浏览器默认的内部 padding，防止形状被挤压成椭圆 */
-.color-dot::-webkit-color-swatch-wrapper { 
-  padding: 0; 
-}
-/* 改为圆角矩形，与系统整体的 var(--radius-md) 保持协调 */
-.color-dot::-webkit-color-swatch { 
-  border: 2px solid var(--color-border); 
-  border-radius: var(--radius-md); 
-}
-.color-dot::-moz-color-swatch { 
-  border: 2px solid var(--color-border); 
-  border-radius: var(--radius-md); 
-}
+.color-dot { appearance: none; -webkit-appearance: none; width: 36px; height: 36px; border: none; background: none; cursor: pointer; padding: 0; }
+.color-dot::-webkit-color-swatch-wrapper { padding: 0; }
+.color-dot::-webkit-color-swatch { border: 2px solid var(--color-border); border-radius: var(--radius-md); }
+.color-dot::-moz-color-swatch { border: 2px solid var(--color-border); border-radius: var(--radius-md); }
 
 .btn { width: 100%; height: 52px; border-radius: var(--radius-md); border: none; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
 .btn--primary { background: var(--color-primary); color: var(--color-bg); }
@@ -411,133 +281,30 @@ async function handleSave() {
 .button-group { display: flex; flex-direction: column; }
 
 .parent-group { margin-bottom: 8px; }
-
-.category-item--parent {
-  background: var(--color-bg);
-  border-left: 3px solid var(--color-primary);
-}
-
-.category-item--child {
-  background: var(--color-muted);
-  margin-left: 16px;
-  border-left: 3px solid var(--color-border);
-}
-
+.category-item--parent { background: var(--color-bg); border-left: 3px solid var(--color-primary); }
+.category-item--child { background: var(--color-muted); margin-left: 16px; border-left: 3px solid var(--color-border); }
 .children-list { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
-
 .child-indent { width: 8px; flex-shrink: 0; }
-
 .item-actions { display: flex; align-items: center; gap: 4px; }
 
-.btn-icon--add {
-  color: var(--color-primary);
-  font-size: 18px;
-}
+.btn-icon--add { color: var(--color-primary); font-size: 18px; }
 
-.select-minimal {
-  background: var(--color-muted);
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 6px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-fg);
-  cursor: pointer;
-}
+.select-minimal { background: var(--color-muted); border: 1.5px solid var(--color-border); border-radius: var(--radius-md); padding: 6px 10px; font-size: 13px; font-weight: 600; color: var(--color-fg); cursor: pointer; }
 
-/* --- 新增：展开/折叠箭头样式 --- */
-.btn-expand {
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+.btn-expand { padding: 4px; display: flex; align-items: center; justify-content: center; }
+.expand-arrow { color: var(--color-fg-muted); transition: transform 0.2s ease; }
+.expand-arrow.is-expanded { transform: rotate(90deg); }
 
-.expand-arrow {
-  display: inline-block;
-  font-size: 11px;
-  color: var(--color-fg-muted);
-  transition: transform 0.2s ease; /* 旋转动画效果 */
-}
+.time-badge { font-size: 11px; font-weight: 700; color: var(--color-fg-muted); background: var(--color-muted); padding: 2px 8px; border-radius: 12px; margin-left: 8px; font-feature-settings: "tnum"; opacity: 0.8; }
+.category-item--child .time-badge { font-size: 10px; opacity: 0.6; }
 
-/* 展开状态下箭头向下转 90 度 */
-.expand-arrow.is-expanded {
-  transform: rotate(90deg);
-}
-
-/* 新增：时长标签样式 */
-.time-badge {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--color-fg-muted);
-  background: var(--color-muted);
-  padding: 2px 8px;
-  border-radius: 12px;
-  margin-left: 8px;
-  /* 使用等宽数字防止时长变化时文字抖动 */
-  font-feature-settings: "tnum";
-  opacity: 0.8;
-}
-
-/* 如果是在小类中，字体可以再稍微小一点以示区分 */
-.category-item--child .time-badge {
-  font-size: 10px;
-  opacity: 0.6;
-}
-
-/* 归档区域的折叠切换按钮 */
-.archive-toggle {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 16px;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--color-fg-muted);
-  cursor: pointer;
-}
-
+.archive-toggle { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: 13px; font-weight: 700; color: var(--color-fg-muted); cursor: pointer; }
 .archive-section { margin-top: 8px; }
+.archived-list { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.category-item--archived { opacity: 0.6; background: var(--color-muted); border-style: dashed; }
+.parent-hint { font-size: 11px; color: var(--color-fg-muted); background: var(--color-muted); padding: 2px 6px; border-radius: 4px; }
 
-.archived-list {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* 归档分类的视觉样式：用较低的透明度表示"不活跃"状态 */
-.category-item--archived {
-  opacity: 0.6;
-  background: var(--color-muted);
-  border-style: dashed;   /* 虚线边框进一步区分归档状态 */
-}
-
-/* 显示父类名称的小标签 */
-.parent-hint {
-  font-size: 11px;
-  color: var(--color-fg-muted);
-  background: var(--color-muted);
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-/* 恢复按钮的颜色区别于删除按钮 */
-.btn-icon--restore {
-  color: var(--color-accent);
-}
-
-.btn-icon--restore:hover {
-  color: var(--color-accent);
-  opacity: 0.7;
-}
-
-/* 归档按钮 */
-.btn-icon--archive:hover {
-  color: #f59e0b;   /* 琥珀色，视觉上介于"正常操作"和"危险操作"之间 */
-}
+.btn-icon--restore { color: var(--color-accent); }
+.btn-icon--restore:hover { color: var(--color-accent); opacity: 0.7; }
+.btn-icon--archive:hover { color: #f59e0b; }
 </style>
