@@ -7,11 +7,12 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getCategories, addCategory, updateCategory, deleteCategory } from '@/db'
+import { getCategories, getAllCategories, addCategory, updateCategory, deleteCategory, archiveCategory } from '@/db'
 import { supabase } from '@/lib/supabase'  
 
 export const useCategoryStore = defineStore('category', () => {
   const categories = ref([])  // 分类列表，初始为空
+  const allCategories = ref([])  
 
   // 预置的默认分类，供初次使用的用户直接选择
   const DEFAULT_CATEGORIES = [
@@ -23,27 +24,36 @@ export const useCategoryStore = defineStore('category', () => {
   ]
 
   // 从数据库加载分类，应用启动时调用一次
-  async function loadCategories() {
-    const stored = await getCategories()
+let channel = null 
 
-    // 如果是第一次使用，自动写入默认分类
-    if (stored.length === 0) {
-      for (const cat of DEFAULT_CATEGORIES) {
-        await addCategory(cat)
-      }
-      categories.value = await getCategories()
-    } else {
-      categories.value = stored
+async function loadCategories() {
+  const stored = await getCategories()
+
+  if (stored.length === 0) {
+    for (const cat of DEFAULT_CATEGORIES) {
+      await addCategory(cat)
     }
-        // 新增：实时监听 categories 表变化，任何端增删改都自动同步
-    supabase
+    categories.value = await getCategories()
+  } else {
+    categories.value = stored
+  }
+
+  allCategories.value = await getAllCategories()
+
+  if (!channel) {
+    channel = supabase
       .channel('categories-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
-        // 有任何变化时重新拉取最新数据
-        getCategories().then(data => { categories.value = data })
-      })
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'categories' },
+        async () => {
+          categories.value = await getCategories()
+          allCategories.value = await getAllCategories()
+        }
+      )
       .subscribe()
   }
+} 
 
   async function add(data) {
     await addCategory(data)
@@ -60,10 +70,32 @@ export const useCategoryStore = defineStore('category', () => {
     await loadCategories()
   }
 
+  async function archive(id) {
+    await archiveCategory(id, true)
+    await loadCategories()   // 归档后重新加载，让分类从计时页消失
+  }
+
+  async function unarchive(id) {
+    await archiveCategory(id, false)
+    await loadCategories()   // 恢复后重新加载，让分类重新出现在计时页
+  }
   // 只取大类（parentId 为 null）
 const parentCategories = computed(() =>
   categories.value.filter(c => c.parentId === null)
 )
+
+const childrenMap = computed(() => {
+  const map = {}
+
+  categories.value.forEach(c => {
+    const pid = c.parentId ?? 'root'  // 防止 null/undefined 问题
+
+    if (!map[pid]) map[pid] = []
+    map[pid].push(c)
+  })
+
+  return map
+})
 
 // 取某个大类下的小类
 function getChildren(parentId) {
@@ -73,7 +105,8 @@ function getChildren(parentId) {
   // 根据 id 快速查找分类对象（图表渲染时用）
   function findById(id) {
     return categories.value.find(c => c.id === id)
+        ?? allCategories.value.find(c => c.id === id)
   }
 
-  return { categories, parentCategories, loadCategories, add, update, remove, findById, getChildren }
+  return { categories, allCategories, parentCategories, loadCategories, add, update, remove, archive, unarchive, findById, getChildren }
 })

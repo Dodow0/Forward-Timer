@@ -7,87 +7,235 @@
       </div>
     </header>
 
-    <div class="content-body">
-      <div class="category-list">
-        <!-- 大类循环 -->
-        <div v-for="parent in categoryStore.parentCategories" :key="parent.id" class="parent-group">
-          <!-- 大类行 -->
-          <div class="category-item category-item--parent" @click="startEdit(parent)">
-            <div class="item-info">
-              <button @click.stop="toggleExpand(parent.id)" class="btn-icon btn-expand">
-                <span class="expand-arrow" :class="{ 'is-expanded': isExpanded(parent.id) }">▶</span>
-              </button>
-              <span class="color-indicator" :style="{ background: parent.color }"></span>
-              <span class="item-name">{{ parent.name }}</span>
-              <span v-if="durationMap[parent.id]" class="time-badge">
-                {{ formatDuration(durationMap[parent.id]) }}
-              </span>
-            </div>
-            <div class="item-actions">
-              <button @click.stop="startAddChild(parent)" class="btn-icon btn-icon--add" title="添加小类">＋</button>
-              <button @click.stop="confirmDelete(parent)" class="btn-icon" title="删除分类">✕</button>
-            </div>
-          </div>
+<div class="content-body">
+  <div class="category-list">
+    <!-- 大类循环 -->
+    <div
+      v-for="parent in categoryStore.parentCategories"
+      :key="parent.id"
+      class="parent-group"
+    >
+      <!-- 大类行 -->
+      <div class="category-item category-item--parent">
+        <div class="item-info" @click="startEdit(parent)">
+          <button
+            @click.stop="toggleExpand(parent.id)"
+            class="btn-icon btn-expand"
+          >
+            <span
+              class="expand-arrow"
+              :class="{ 'is-expanded': isExpanded(parent.id) }"
+              >▶</span
+            >
+          </button>
 
-          <!-- 小类列表 -->
-          <div v-show="isExpanded(parent.id)" class="children-list">
-            <div v-for="child in categoryStore.getChildren(parent.id)" :key="child.id"
-                class="category-item category-item--child" @click="startEdit(child)">
-              <div class="item-info">
-                <span class="child-indent"></span>
-                <span class="color-indicator" :style="{ background: child.color }"></span>
-                <span class="item-name">{{ child.name }}</span>
-                <span v-if="durationMap[child.id]" class="time-badge">
-                  {{ formatDuration(durationMap[child.id]) }}
-                </span>
-              </div>
-              <button @click.stop="confirmDelete(child)" class="btn-icon" title="删除">✕</button>
-            </div>
-          </div>
+          <span
+            class="color-indicator"
+            :style="{ background: parent.color }"
+          ></span>
+
+          <span class="item-name">{{ parent.name }}</span>
+
+          <span
+            v-if="durationMap[parent.id] !== undefined"
+            class="time-badge"
+          >
+            {{ formatDuration(durationMap[parent.id]) }}
+          </span>
+        </div>
+
+        <div class="item-actions">
+          <button
+            @click.stop="startAddChild(parent)"
+            class="btn-icon btn-icon--add"
+            title="添加小类"
+          >
+            ＋
+          </button>
+
+          <button
+           @click.stop="confirmArchive(parent)"
+            class="btn-icon btn-icon--archive"
+            title="归档分类"
+          >
+            📦
+          </button>
+
+          <button
+            @click.stop="confirmDelete(parent)"
+            class="btn-icon"
+            title="删除分类"
+          >
+            ✕
+          </button>
         </div>
       </div>
 
-       <div class="add-card" ref="formRef">
-        <h3 class="card-title">{{ isEditing ? '编辑分类' : (newCat.parentId ? '新增小类' : '新增大类') }}</h3>
-        <div class="form-group">
-          <input v-model="newCat.name" :placeholder="newCat.parentId ? '输入小类名称...' : '输入大类名称...'" class="input-minimal" />
-          
-          <!-- 所属大类选择（新增时才显示，编辑时不允许改层级） -->
-          <div v-if="!isEditing" class="picker-row">
-            <span class="label">所属大类</span>
-            <select v-model="newCat.parentId" class="select-minimal">
-              <option :value="null">无（作为大类）</option>
-              <option v-for="p in categoryStore.parentCategories" :key="p.id" :value="p.id">
-                {{ p.name }}
-              </option>
-            </select>
+      <!-- 小类列表 -->
+      <div v-if="isExpanded(parent.id)" class="children-list">
+        <div
+          v-for="child in (categoryStore.childrenMap?.[parent.id] || [])"
+          :key="child.id"
+          class="category-item category-item--child"
+        >
+          <div class="item-info" @click="startEdit(child)">
+            <span class="child-indent"></span>
+
+            <span
+              class="color-indicator"
+              :style="{ background: child.color }"
+            ></span>
+
+            <span class="item-name">{{ child.name }}</span>
+
+            <span
+              v-if="durationMap[child.id] !== undefined"
+              class="time-badge"
+            >
+              {{ formatDuration(durationMap[child.id]) }}
+            </span>
           </div>
 
-          <div class="picker-row">
-            <span class="label">选择主题色</span>
-            <input v-model="newCat.color" type="color" class="color-dot" />
-          </div>
-           <div class="button-group">
-            <button @click="handleSave" class="btn btn--primary">
-             {{ isEditing ? '保存修改' : '确认添加' }}            </button>
-           <button v-if="isEditing" @click="cancelEdit" class="btn btn--outline">取消</button>
-         </div>
+          <button
+            @click.stop="confirmDelete(child)"
+            class="btn-icon"
+            title="删除"
+          >
+            ✕
+          </button>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- 表单 -->
+  <div class="add-card" ref="formRef">
+    <h3 class="card-title">
+      {{ isEditing ? '编辑分类' : (newCat.parentId ? '新增小类' : '新增大类') }}
+    </h3>
+
+    <div class="form-group">
+      <input
+        v-model="newCat.name"
+        :placeholder="newCat.parentId ? '输入小类名称...' : '输入大类名称...'"
+        class="input-minimal"
+      />
+
+      <!-- 所属大类选择 -->
+      <div v-if="!isEditing" class="picker-row">
+        <span class="label">所属大类</span>
+
+        <select v-model="newCat.parentId" class="select-minimal">
+          <option :value="undefined">无（作为大类）</option>
+
+          <option
+            v-for="p in categoryStore.parentCategories"
+            :key="p.id"
+            :value="p.id"
+          >
+            {{ p.name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="picker-row">
+        <span class="label">选择主题色</span>
+        <input v-model="newCat.color" type="color" class="color-dot" />
+      </div>
+
+      <div class="button-group">
+        <button @click="handleSave" class="btn btn--primary">
+          {{ isEditing ? '保存修改' : '确认添加' }}
+        </button>
+
+        <button
+          v-if="isEditing"
+          @click="cancelEdit"
+          class="btn btn--outline"
+        >
+          取消
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 归档区域 -->
+  <div class="archive-section">
+    <button
+      class="archive-toggle"
+      @click="showArchived = !showArchived"
+    >
+      <span>已归档分类（{{ archivedList.length }}）</span>
+
+      <span
+        class="expand-arrow"
+        :class="{ 'is-expanded': showArchived }"
+        >▶</span
+      >
+    </button>
+
+    <div v-if="showArchived" class="archived-list">
+      <p v-if="archivedList.length === 0" class="empty-hint">
+        暂无归档分类
+      </p>
+
+      <div
+        v-for="cat in archivedList"
+        :key="cat.id"
+        class="category-item category-item--archived"
+      >
+        <div class="item-info">
+          <span
+            class="color-indicator"
+            :style="{ background: cat.color }"
+          ></span>
+
+          <span class="item-name">{{ cat.name }}</span>
+
+          <span class="parent-hint" v-if="cat.parentId">
+            {{ categoryStore.findById(cat.parentId)?.name }}
+          </span>
+        </div>
+
+        <div class="item-actions">
+          <button
+            @click="categoryStore.unarchive(cat.id)"
+            class="btn-icon btn-icon--restore"
+            title="恢复分类"
+          >
+            ↩
+          </button>
+
+          <button
+            @click="confirmDelete(cat)"
+            class="btn-icon"
+            title="永久删除"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useCategoryStore } from '@/stores/categoryStore'
-import { getTotalDurationByCategory } from '@/db'
+import { getTotalDurationByCategory, getAllCategories } from '@/db'
 import { formatDuration } from '@/utils/dateHelpers'
 
 const categoryStore = useCategoryStore()
 const durationMap = ref({}) // { [categoryId]: seconds }
+const showArchived = ref(false) 
+const archivedList = computed(() =>
+  categoryStore.allCategories.filter(c => c.archived)
+)
 
 onMounted(async () => {
+  await categoryStore.loadCategories()
   // 1. 先拿到后端原始数据
   const rawData = await getTotalDurationByCategory()
   
@@ -153,6 +301,17 @@ function cancelEdit() {
   editingId.value = null
   newCat.value = { name: '', color: '#3B82F6', parentId: null }
 }
+
+// 新增归档确认功能
+async function confirmArchive(cat) {
+  const confirmed = window.confirm(
+    `📦 确定要归档“${cat.name}”吗？\n\n归档后的分类将移动到页面底部的“已归档分类”列表中。`
+  )
+  if (confirmed) {
+    await categoryStore.archive(cat.id)
+  }
+}
+
 // 2. 增加删除确认功能
 async function confirmDelete(cat) {
   const confirmed = window.confirm(
@@ -324,5 +483,61 @@ async function handleSave() {
 .category-item--child .time-badge {
   font-size: 10px;
   opacity: 0.6;
+}
+
+/* 归档区域的折叠切换按钮 */
+.archive-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-fg-muted);
+  cursor: pointer;
+}
+
+.archive-section { margin-top: 8px; }
+
+.archived-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 归档分类的视觉样式：用较低的透明度表示"不活跃"状态 */
+.category-item--archived {
+  opacity: 0.6;
+  background: var(--color-muted);
+  border-style: dashed;   /* 虚线边框进一步区分归档状态 */
+}
+
+/* 显示父类名称的小标签 */
+.parent-hint {
+  font-size: 11px;
+  color: var(--color-fg-muted);
+  background: var(--color-muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* 恢复按钮的颜色区别于删除按钮 */
+.btn-icon--restore {
+  color: var(--color-accent);
+}
+
+.btn-icon--restore:hover {
+  color: var(--color-accent);
+  opacity: 0.7;
+}
+
+/* 归档按钮 */
+.btn-icon--archive:hover {
+  color: #f59e0b;   /* 琥珀色，视觉上介于"正常操作"和"危险操作"之间 */
 }
 </style>

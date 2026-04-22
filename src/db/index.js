@@ -15,6 +15,7 @@ export async function getCategories() {
   const { data, error } = await supabase
     .from('categories')
     .select('*')
+    .eq('archived', false) 
     .order('created_at')
   if (error) throw error
   return data.map(r => ({
@@ -22,9 +23,21 @@ export async function getCategories() {
     name:      r.name,
     color:     r.color,
     parentId:  r.parent_id ?? null,
-    createdAt: r.created_at
+    createdAt: r.created_at,
+    archived:  r.archived 
   }))
 }
+
+// 新增：需要看所有分类时（统计页用）单独提供一个函数
+export async function getAllCategories() {
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .order('created_at')
+  if (error) throw error
+  return data.map(r => ({ ...r, parentId: r.parent_id ?? null }))
+}
+
 
 export async function addCategory({ name, color, parentId = null }) {
   const { data, error } = await supabase
@@ -52,6 +65,15 @@ export async function deleteCategory(id) {
   const { error } = await supabase
     .from('categories')
     .delete()
+    .eq('id', id)
+  if (error) throw error
+}
+
+// 新增：归档/取消归档
+export async function archiveCategory(id, archived = true) {
+  const { error } = await supabase
+    .from('categories')
+    .update({ archived })
     .eq('id', id)
   if (error) throw error
 }
