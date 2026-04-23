@@ -39,6 +39,46 @@ function clearState() {
   localStorage.removeItem(STORAGE_KEY)
 }
 
+function splitByMidnight(startTime, duration) {
+  const segments = []
+  let remaining  = duration          // 还剩多少秒需要分配
+  let segStart   = startTime         // 当前段的开始时间戳（毫秒）
+
+  while (remaining > 0) {
+    const startDate  = new Date(segStart)
+
+    // 计算当前段所在日期的零点时间戳
+    // 用 setHours(0,0,0,0) 可以安全地处理夏令时问题，不用手动算 86400000
+    const nextMidnight = new Date(startDate)
+    nextMidnight.setDate(nextMidnight.getDate() + 1)
+    nextMidnight.setHours(0, 0, 0, 0)
+
+    // 从当前开始时间到下一个零点还有多少秒
+    const secondsUntilMidnight = Math.floor((nextMidnight - segStart) / 1000)
+
+    // 当前段的时长：取"剩余时长"和"距零点时长"的较小值
+    // 如果剩余时长在零点之前就结束了，就不需要切割
+    const segDuration = Math.min(remaining, secondsUntilMidnight)
+
+    // 构造日期字符串，使用本地时区（不能用 toISOString，那是 UTC）
+    const y = startDate.getFullYear()
+    const m = String(startDate.getMonth() + 1).padStart(2, '0')
+    const d = String(startDate.getDate()).padStart(2, '0')
+
+    segments.push({
+      date:      `${y}-${m}-${d}`,
+      startTime: segStart,
+      duration:  segDuration
+    })
+
+    // 移动到下一段的起点
+    segStart  = nextMidnight.getTime()
+    remaining -= segDuration
+  }
+
+  return segments
+}
+
 export const useTimerStore = defineStore('timer', () => {
   // ── State ──
   const isRunning        = ref(false)
@@ -83,12 +123,15 @@ export const useTimerStore = defineStore('timer', () => {
 
     // 自动保存记录
     if (selectedCategory.value) {
-      await addRecord({
-        categoryId: selectedCategory.value.id,
-        date:       today(),
-        startTime:  startTimestamp.value,
-        duration:   targetDuration.value
-      })
+      const segments = splitByMidnight(startTimestamp.value, targetDuration.value)
+      for (const seg of segments) {
+        await addRecord({
+          categoryId: selectedCategory.value.id,
+          date:       seg.date,
+          startTime:  seg.startTime,
+          duration:   seg.duration
+        })
+      }
     }
 
     clearState()
@@ -304,12 +347,15 @@ export const useTimerStore = defineStore('timer', () => {
     const actualDuration = elapsed.value
 
     if (actualDuration > 5) {
+    const segments = splitByMidnight(startTimestamp.value, actualDuration)
+    for (const seg of segments) {
       await addRecord({
         categoryId: selectedCategory.value.id,
-        date:       today(),
-        startTime:  startTimestamp.value,
-        duration:   actualDuration
+        date:       seg.date,
+        startTime:  seg.startTime,
+        duration:   seg.duration
       })
+    }
     }
 
     elapsed.value          = 0
