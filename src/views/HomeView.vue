@@ -32,7 +32,7 @@
                   style="transition: stroke-dashoffset 0.5s linear;" />
         </svg>
         <div class="timer-display">
-          <span class="time-text">{{ (timerStore.isRunning || timerStore.isFinished) ? timerStore.displayTime : defaultDisplayTime }}</span>
+          <span class="time-text">{{(timerStore.isRunning || timerStore.elapsed > 0 || timerStore.isFinished) ? timerStore.displayTime : defaultDisplayTime }}</span>
           
           <span class="category-badge" v-if="timerStore.selectedCategory" :style="{ background: timerStore.selectedCategory.color + '18' }">
             <span class="dot" :style="{ background: timerStore.selectedCategory.color }"></span>
@@ -48,6 +48,21 @@
                 @click="targetMinutes = mins">{{ mins }} 分</button>
         <input type="number" class="preset-input" v-model.number="targetMinutes" placeholder="自定义" min="1" max="999"/>
       </div>
+
+      <!-- 画中画按钮：只在计时进行中才显示 -->
+      <PiPTimer ref="pipTimerRef" />
+      <button
+        v-if="timerStore.isRunning|| timerStore.elapsed > 0"
+        class="btn-pip"
+        @click="togglePiP"
+        :title="pipOpen ? '关闭浮窗' : '开启浮窗'"
+        :class="{ 'btn-pip--active': pipOpen }"
+      >
+        <X v-if="pipOpen" :size="16" :stroke-width="2.5" />
+        <PictureInPicture2 v-else :size="16" :stroke-width="2.5" />
+        
+        <span>{{ pipOpen ? '关闭浮窗' : '迷你浮窗' }}</span>
+      </button>
 
       <div class="controls">
         <button v-if="!timerStore.isRunning && timerStore.elapsed === 0" 
@@ -68,7 +83,7 @@
       <transition name="fade">
         <div v-if="timerStore.isFinished" class="finish-overlay">
           <div class="finish-card">
-            <div class="finish-icon">🎉</div>
+            <div class="finish-icon"><PartyPopper :size="48" :stroke-width="1.5" color="var(--color-primary)" /></div>
             <p class="finish-title">专注完成！</p>
             <p class="finish-sub">{{ targetMinutes }} 分钟已自动保存</p>
             <button class="btn btn--primary" style="max-width:180px; height: 58px; font-size: 16px; border-radius: 12px;" @click="handleFinishDismiss">好的</button>
@@ -134,11 +149,14 @@
 </template>
 
 <script setup>
-import { ChevronRight } from 'lucide-vue-next'
 import { ref, computed, onMounted  } from 'vue'
 import { useTimerStore } from '@/stores/timerStore'
 import { useCategoryStore } from '@/stores/categoryStore'
+import PiPTimer from '@/components/PiPTimer.vue'
+import { ChevronRight, PictureInPicture2, PartyPopper, X } from 'lucide-vue-next'
 
+const pipTimerRef = ref(null)
+const pipOpen = computed(() => pipTimerRef.value?.isOpen ?? false)
 const timerStore    = useTimerStore()
 const categoryStore = useCategoryStore()
 
@@ -150,6 +168,14 @@ const today = computed(() =>
 const currentMode   = ref('forward') // 'forward' 或 'countdown'
 const targetMinutes = ref(25)        // 默认 25 分钟
 const selectedParent = ref(null)   // 当前选中的大类
+
+function togglePiP() {
+  if (pipOpen.value) {
+    pipTimerRef.value.closePiP()
+  } else {
+    pipTimerRef.value.openPiP()
+  }
+}
 
 function selectParent(parent) {
   if (timerStore.isRunning) return
@@ -298,7 +324,25 @@ onMounted(() => {
 
 .btn--primary { background: var(--color-primary); color: var(--color-bg); }
 .btn--outline { background: transparent; color: var(--color-fg); border: 2px solid var(--color-border); }
-
+.btn-pip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px; /* 图标和文字的间距 */
+  padding: 8px 16px;
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  color: var(--color-fg);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-pip--active {
+  background: var(--color-bg);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
 .category-section { padding: 32px 20px; background: var(--color-muted); min-height: calc(100vh - 400px); }
 .section-label { font-size: 12px; font-weight: 700; color: var(--color-fg-muted); margin-bottom: 16px; text-transform: uppercase; }
 .category-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
