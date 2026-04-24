@@ -7,6 +7,10 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { addRecord } from '@/db'
 import { today } from '@/utils/dateHelpers'
+import {initNotificationSW, startTimerNotification, updateTimerNotification, stopTimerNotification } from '@/utils/notificationManager'
+
+// 模块加载时就初始化 SW（不需要用户操作）
+initNotificationSW()
 
 const STORAGE_KEY = 'timer_persist'
 
@@ -134,6 +138,7 @@ export const useTimerStore = defineStore('timer', () => {
       }
     }
 
+    stopTimerNotification()
     clearState()
   }
 
@@ -195,6 +200,12 @@ export const useTimerStore = defineStore('timer', () => {
           mode.value,           // 新增
           targetDuration.value  // 新增
         )
+              if (selectedCategory.value) {
+        updateTimerNotification(
+          displayTime.value,
+          selectedCategory.value.name
+        )
+      }
       }
     }, 1000)
   }
@@ -314,6 +325,7 @@ export const useTimerStore = defineStore('timer', () => {
 
     _startRaf()
     _startInterval()
+    startTimerNotification(displayTime.value, category.name)
   }
 
   function pause() {
@@ -358,6 +370,7 @@ export const useTimerStore = defineStore('timer', () => {
     }
     }
 
+    stopTimerNotification()
     elapsed.value          = 0
     selectedCategory.value = null
     startTimestamp.value   = null
