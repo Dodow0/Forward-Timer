@@ -38,6 +38,15 @@ export async function getAllCategories() {
   return data.map(r => ({ ...r, parentId: r.parent_id ?? null }))
 }
 
+// 获取所有记录（不限日期范围），用于全量导出
+export async function getAllRecords() {
+  const { data, error } = await supabase
+    .from('records')
+    .select('*')
+    .order('date')
+  if (error) throw error
+  return data
+}
 
 export async function addCategory({ name, color, parentId = null }) {
   const { data, error } = await supabase

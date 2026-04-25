@@ -9,11 +9,11 @@ export default defineConfig({
       // 'autoUpdate' 意味着 Service Worker 会在后台自动更新
       registerType: 'autoUpdate',
       manifest: {
-        name: 'pomodoro',
-        short_name: 'timer',
+        name: 'Pomodoro',
+        short_name: 'Pomodoro',
         description: '按事件分类的正向计时与数据可视化工具',
-        theme_color: '#369190',
-        background_color: '#1a1a2e',
+        theme_color: '#d9dede',
+        background_color: '#ffffff',
         display: 'standalone',  // 安装后像原生App一样，没有浏览器地址栏
         orientation: 'portrait',
         icons: [

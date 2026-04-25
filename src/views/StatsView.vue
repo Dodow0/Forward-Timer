@@ -7,14 +7,42 @@
         <h1 class="display-title">统计</h1>
       </div>
 
-      <div class="segmented-control">
-        <button
-          v-for="m in modes"
-          :key="m.value"
-          class="segment-btn"
-          :class="{ 'segment-btn--active': mode === m.value }"
-          @click="switchMode(m.value)"
-        >{{ m.label }}</button>
+<input type="file" ref="fileInput" accept=".json" style="display: none" @change="handleFileChange" />
+      
+      <div class="toolbar">
+        <div class="segmented-control">
+          <button
+            v-for="m in modes"
+            :key="m.value"
+            class="segment-btn"
+            :class="{ 'segment-btn--active': mode === m.value }"
+            @click="switchMode(m.value)"
+          >{{ m.label }}</button>
+        </div>
+
+        <div class="more-actions">
+          <button class="more-btn" :class="{ active: showExportMenu }" @click="showExportMenu = !showExportMenu">
+            <MoreHorizontal :size="20" />
+          </button>
+          
+          <div v-if="showExportMenu" class="click-away-overlay" @click="showExportMenu = false"></div>
+
+          <div v-if="showExportMenu" class="dropdown-menu">
+            <button class="dropdown-item" @click="triggerImport(); showExportMenu = false" :disabled="isImporting">
+              <Loader2 v-if="isImporting" class="animate-spin" :size="16" />
+              <Upload v-else :size="16" />
+              <span>导入数据</span>
+            </button>
+            <button class="dropdown-item" @click="exportAsJSON(); showExportMenu = false">
+              <FileJson :size="16" />
+              <span>导出 JSON</span>
+            </button>
+            <button class="dropdown-item" @click="exportAsCSV(categoryStore); showExportMenu = false">
+              <FileSpreadsheet :size="16" />
+              <span>导出 CSV</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div v-if="mode === 'custom'" class="custom-date-picker">
@@ -131,12 +159,14 @@ import Heatmap   from '@/components/charts/Heatmap.vue'
 import { useCategoryStore } from '@/stores/categoryStore'
 import { getRecordsByRange, deleteRecord} from '@/db'
 import { getDateRange, groupByCategory, groupByDate, formatDuration } from '@/utils/dateHelpers'
+import { exportAsJSON, exportAsCSV, importFromJSON } from '@/utils/dataTransfer'
+import { Download, Upload, FileJson, FileSpreadsheet, Loader2, MoreHorizontal } from 'lucide-vue-next'
 
 const categoryStore = useCategoryStore()
 const mode    = ref('day')
 const records = ref([])
 const loading = ref(false)
-const pieView = ref('parent')  // 'parent' | 'child'
+const pieView = ref('child')  // 'parent' | 'child'
 const expandedDates = ref(new Set())   // 当前展开的日期集合
 const pendingDelete = ref(null)        // 待确认删除的记录
 const periodOffset = ref(0)           // 周期偏移量
@@ -210,6 +240,34 @@ const heatmapData = computed(() => {
   return result
 })
 
+const isImporting = ref(false)
+const fileInput = ref(null)
+const showExportMenu = ref(false)
+
+function triggerImport() {
+  fileInput.value?.click()
+}
+
+// 处理 JSON 导入
+async function handleFileChange(e) {
+  const file = e.target.files[0]
+  if (!file) return
+
+  isImporting.value = true
+  try {
+    const result = await importFromJSON(file)
+    alert(`🎉 导入成功！\n共导入 ${result.categoryCount} 个分类和 ${result.recordCount} 条记录。`)
+    // 导入后刷新页面数据
+    await categoryStore.loadCategories()
+    await loadData()
+  } catch (err) {
+    alert(`❌ 导入失败: ${err.message}`)
+  } finally {
+    isImporting.value = false
+    e.target.value = '' // 清空 input 以便下次选择同一文件
+  }
+}
+
 async function loadData() {
   loading.value = true
   try {
@@ -220,7 +278,7 @@ async function loadData() {
         records.value = []
         return
       }
-      // 【修复核心点】：直接使用原生的 YYYY-MM-DD 字符串传递给 IndexedDB 进行比对
+      // 直接使用原生的 YYYY-MM-DD 字符串传递给 IndexedDB 进行比对
       // 不要转换为 Date 对象，因为数据库里存的 date 字段就是字符串
       startRange = customStart.value
       endRange = customEnd.value
@@ -354,10 +412,10 @@ onMounted(loadData)
 /* 分段控制器 */
 .segmented-control {
   display: inline-flex;
+  flex: 1; 
   background: var(--color-muted);
   padding: 4px;
   border-radius: 8px;
-  margin-top: 16px;
 }
 
 .segment-btn {
@@ -554,5 +612,96 @@ onMounted(loadData)
 .pie-toggle-btn.active {
   background: var(--color-bg); color: var(--color-fg);
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.more-actions {
+  position: relative;
+}
+
+.more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; /* 变成正方形的小按钮 */
+  height: 36px;
+  background: var(--color-muted);
+  border: none;
+  border-radius: 8px;
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.more-btn:hover, .more-btn.active {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.click-away-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 15;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 8px;
+  min-width: 140px;
+  box-shadow: 0 10px 24px -8px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 20;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--color-fg);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: left;
+}
+
+.dropdown-item:hover:not(:disabled) {
+  background: var(--color-muted);
+}
+
+.dropdown-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 旋转动画 */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>
