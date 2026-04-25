@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.3",
-    "dexie": "^3.2.4",
+    "dexie": "^3.2.7",
     "echarts": "^5.4.3",
     "lucide-vue-next": "^1.0.0",
     "pinia": "^2.1.0",

@@ -8,7 +8,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getCategories, getAllCategories, addCategory, updateCategory, deleteCategory, archiveCategory } from '@/db'
-import { supabase } from '@/lib/supabase'  
 
 export const useCategoryStore = defineStore('category', () => {
   const categories = ref([])  // 分类列表，初始为空
@@ -39,21 +38,8 @@ async function loadCategories() {
   }
 
   allCategories.value = await getAllCategories()
-
-  if (!channel) {
-    channel = supabase
-      .channel('categories-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'categories' },
-        async () => {
-          categories.value = await getCategories()
-          allCategories.value = await getAllCategories()
-        }
-      )
-      .subscribe()
-  }
-} 
+  // 删掉原来的 Supabase channel 订阅代码
+}
 
   async function add(data) {
     await addCategory(data)

@@ -41,6 +41,12 @@
               <FileSpreadsheet :size="16" />
               <span>导出 CSV</span>
             </button>
+              <!-- 新增：分隔线 + WebDAV 入口 -->
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item" @click="showWebDAVModal = true; showExportMenu = false">
+              <Cloud :size="16" />
+              <span>WebDAV</span>
+            </button>
           </div>
         </div>
       </div>
@@ -147,6 +153,68 @@
         </div>
       </div>
     </transition>
+          <!-- WebDAV 配置与同步弹窗 -->
+      <transition name="fade">
+        <div v-if="showWebDAVModal" class="overlay" @click.self="showWebDAVModal = false">
+          <div class="confirm-card webdav-card">
+            <p class="confirm-title">WebDAV 同步</p>
+
+            <!-- 配置区：服务器地址、用户名、密码 -->
+            <div class="webdav-fields">
+              <label class="webdav-label">服务器地址</label>
+              <input
+                v-model="webdavConfig.url"
+                class="webdav-input"
+                placeholder="https://dav.example.com/remote.php/dav/files/user"
+              />
+
+              <label class="webdav-label">用户名</label>
+              <input
+                v-model="webdavConfig.username"
+                class="webdav-input"
+                placeholder="username"
+                autocomplete="username"
+              />
+
+              <label class="webdav-label">密码 / 应用密码</label>
+              <input
+                v-model="webdavConfig.password"
+                class="webdav-input"
+                type="password"
+                placeholder="••••••••"
+                autocomplete="current-password"
+              />
+            </div>
+
+            <!-- 状态提示文字（上传/下载结果） -->
+            <p v-if="syncStatus" class="sync-status" :class="{ 'sync-status--error': syncStatus.startsWith('❌') }">
+              {{ syncStatus }}
+            </p>
+
+            <!-- 操作按钮区 -->
+            <div class="webdav-actions">
+            <button class="btn btn--outline btn--full" @click="saveWebDAVConfig">
+                保存配置
+              </button>
+
+              <button class="btn btn--primary btn--full" @click="handleSmartMerge" :disabled="isSyncing">
+                <template v-if="isSyncing">处理中…</template>
+                <template v-else>⟳ 智能合并</template>
+              </button>
+
+              <div class="webdav-sync-group">
+                <button class="btn btn--outline" @click="handleUpload" :disabled="isSyncing">
+                  ↑ 上传备份
+                </button>
+                <button class="btn btn--outline" @click="handleDownload" :disabled="isSyncing">
+                  ↓ 下载恢复
+                </button>
+            </div>
+            </div>
+            <button class="close-btn" @click="showWebDAVModal = false">✕</button>
+          </div>
+        </div>
+      </transition>
     </div>
   </div>
 </template>
@@ -160,7 +228,8 @@ import { useCategoryStore } from '@/stores/categoryStore'
 import { getRecordsByRange, deleteRecord} from '@/db'
 import { getDateRange, groupByCategory, groupByDate, formatDuration } from '@/utils/dateHelpers'
 import { exportAsJSON, exportAsCSV, importFromJSON } from '@/utils/dataTransfer'
-import { Download, Upload, FileJson, FileSpreadsheet, Loader2, MoreHorizontal } from 'lucide-vue-next'
+import { Download, Upload, FileJson, FileSpreadsheet, Loader2, MoreHorizontal, Cloud } from 'lucide-vue-next'
+import { uploadOverwrite, downloadOverwrite, smartMerge, saveConfig, loadConfig } from '@/sync/webdav'
 
 const categoryStore = useCategoryStore()
 const mode    = ref('day')
@@ -174,6 +243,11 @@ const currentPeriodLabel = ref('')    // 当前展示的日期文案
 
 const customStart = ref('')
 const customEnd   = ref('')
+
+const showWebDAVModal = ref(false)
+const webdavConfig    = ref(loadConfig() || { url: '', username: '', password: '' })
+const syncStatus      = ref('')  // 显示给用户的状态文字
+const isSyncing       = ref(false)
 
 const modes = [
   { value: 'day',    label: '日' },
@@ -265,6 +339,57 @@ async function handleFileChange(e) {
   } finally {
     isImporting.value = false
     e.target.value = '' // 清空 input 以便下次选择同一文件
+  }
+}
+
+function saveWebDAVConfig() {
+  saveConfig(webdavConfig.value)
+  syncStatus.value = '✅ 配置已保存'
+}
+
+async function handleUpload() {
+  isSyncing.value  = true
+  syncStatus.value = ''
+  try {
+    const result     = await uploadToWebDAV()
+    syncStatus.value = `✅ 上传成功，共 ${result.records} 条记录`
+  } catch (e) {
+    syncStatus.value = `❌ ${e.message}`
+  } finally {
+    isSyncing.value = false
+  }
+}
+
+async function handleDownload() {
+  isSyncing.value  = true
+  syncStatus.value = ''
+  try {
+    const result     = await downloadFromWebDAV()
+    syncStatus.value = `✅ 恢复成功，共 ${result.records} 条记录`
+    // 下载完成后刷新当前页面的统计数据和分类列表
+    await categoryStore.loadCategories()
+    await loadData()
+  } catch (e) {
+    syncStatus.value = `❌ ${e.message}`
+  } finally {
+    isSyncing.value = false
+  }
+}
+
+async function handleSmartMerge() {
+  isSyncing.value  = true
+  syncStatus.value = ''
+  try {
+    const result = await smartMerge()
+    syncStatus.value = result.merged
+      ? `✅ 合并完成，新增 ${result.newCategories} 个分类、${result.newRecords} 条记录`
+      : `✅ 云端无备份，已上传本地数据`
+    await categoryStore.loadCategories()
+    await loadData()
+  } catch (e) {
+    syncStatus.value = `❌ ${e.message}`
+  } finally {
+    isSyncing.value = false
   }
 }
 
@@ -591,10 +716,16 @@ onMounted(loadData)
 .confirm-title { font-size: 18px; font-weight: 800; color: var(--color-fg); margin: 0; }
 .confirm-sub { font-size: 13px; color: var(--color-fg-muted); margin: 0 0 8px; }
 .confirm-actions { display: flex; gap: 12px; width: 100%; margin-top: 8px; }
-.btn { flex: 1; height: 46px; border-radius: var(--radius-md); border: none; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.btn { flex: 1; height: 46px; min-height: 46px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); border: none; font-size: 14px; font-weight: 700; cursor: pointer;  transition: all 0.2s; }
 .btn:active { transform: scale(0.96); }
 .btn--outline { background: transparent; border: 2px solid var(--color-border); color: var(--color-fg); }
 .btn--danger { background: #ff4d4f; color: #fff; }
+.btn--primary {
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.2); /* 增加微妙阴影 */
+}
 
 .pie-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -703,5 +834,101 @@ onMounted(loadData)
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 4px 0;
+}
+
+/* 让 WebDAV 弹窗比删除确认弹窗更宽，能容纳输入框 */
+.webdav-card {
+  width: 320px;
+  gap: 16px;
+  position: relative; /* 给关闭按钮定位用 */
+}
+
+.webdav-fields {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.webdav-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-fg-muted);
+  margin-top: 4px;
+}
+
+.webdav-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  background: var(--color-muted);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--color-fg);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.webdav-input:focus {
+  border-color: var(--color-primary);
+  background: var(--color-bg);
+}
+
+.webdav-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* 按钮之间的垂直间距 */
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* 全宽类名 */
+.btn--full {
+  width: 100%;
+  flex: none; /* 取消 flex: 1，确保占据完整行 */
+}
+
+.webdav-sync-group {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.webdav-sync-group .btn {
+  flex: 1; /* 平分宽度 */
+  font-size: 12px;
+}
+
+.sync-status {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-align: center;
+}
+
+.sync-status--error {
+  color: #ef4444;
+}
+
+.close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--color-fg-muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
 }
 </style>

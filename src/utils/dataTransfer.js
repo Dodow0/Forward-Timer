@@ -96,15 +96,22 @@ export async function importFromJSON(file) {
 
   // --- 1. 智能合并：大类 ---
   for (const cat of parents) {
-    // 寻找是否已有同名大类
-    const match = existingCategories.find(c => c.name === cat.name && c.parentId === null)
-    if (match) {
-      idMap[cat.id] = match.id // 存在，直接沿用现有的 ID
-    } else {
-      const newId = await addCategory({ name: cat.name, color: cat.color, parentId: null })
-      idMap[cat.id] = newId    // 不存在，创建新的并映射
-      importedCategoryCount++
-    }
+  const match = existingCategories.find(
+    c => c.name === cat.name && (c.parentId === null || c.parentId === undefined)
+  )
+  if (match) {
+    // idMap 记录"旧 id → 新 id"的映射，后续写 records 时要用
+    idMap[cat.id] = match.id
+  } else {
+    // 只传 name、color、parentId，不传 id，让 Dexie 自动分配新 id
+    const newId = await addCategory({ 
+      name: cat.name, 
+      color: cat.color, 
+      parentId: null  // 大类的 parentId 明确设为 null
+    })
+    idMap[cat.id] = newId
+    importedCategoryCount++
+  }
   }
 
   // --- 2. 智能合并：小类 ---

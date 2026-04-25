@@ -10,7 +10,6 @@
 - **实时精准计时**：流畅的计时器界面，支持随时开始、暂停，并自动关联分类。
 - **深度统计分析**：提供柱状图、饼图及热力图，全方位展示日、周、月的时间投入分布。
 - **分类归档系统**：不再活跃的分类可一键归档，保持主界面的清爽，同时保留历史记录。
-- **云端同步**：基于 Supabase 构建，确保你的计时数据在多端之间无缝同步。
 - **本地优先**：利用 IndexedDB 存储，即使在离线状态下也能正常使用。
 
 
@@ -18,7 +17,7 @@
 
 - **框架**: [Vue 3 (Composition API)](https://vuejs.org/)
 - **状态管理**: [Pinia](https://pinia.vuejs.org/)
-- **数据库**: [Supabase](https://supabase.com/) & [IndexedDB](https://developer.mozilla.org/zh-CN/docs/Web/API/IndexedDB_API)
+- **数据库**: [IndexedDB](https://developer.mozilla.org/zh-CN/docs/Web/API/IndexedDB_API)
 - **构建工具**: [Vite](https://vitejs.dev/)
 - **样式**: CSS Variables & Flexbox (支持暗色模式扩展)
 
