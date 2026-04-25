@@ -351,7 +351,7 @@ async function handleUpload() {
   isSyncing.value  = true
   syncStatus.value = ''
   try {
-    const result     = await uploadToWebDAV()
+    const result     = await uploadOverwrite()
     syncStatus.value = `✅ 上传成功，共 ${result.records} 条记录`
   } catch (e) {
     syncStatus.value = `❌ ${e.message}`
@@ -364,7 +364,7 @@ async function handleDownload() {
   isSyncing.value  = true
   syncStatus.value = ''
   try {
-    const result     = await downloadFromWebDAV()
+    const result     = await downloadOverwrite()
     syncStatus.value = `✅ 恢复成功，共 ${result.records} 条记录`
     // 下载完成后刷新当前页面的统计数据和分类列表
     await categoryStore.loadCategories()
