@@ -14,14 +14,16 @@ initNotificationSW()
 
 const STORAGE_KEY = 'timer_persist'
 
-function saveState(startTimestamp, elapsed, category, mode, targetDuration) {
+
+function saveState(startTimestamp, elapsed, category, mode, targetDuration, isPaused = false) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       startTimestamp,
       elapsed,
       category,
-      mode,                // 新增：保存模式
-      targetDuration,      // 新增：保存目标时长
+      mode,
+      targetDuration,
+      isPaused,       // 新增这一行
       savedAt: Date.now()
     }))
   } catch (e) {
@@ -226,44 +228,56 @@ export const useTimerStore = defineStore('timer', () => {
   })
 
   // ── 恢复持久化状态（新增 mode/targetDuration 字段恢复）──
-  function tryRestore() {
-    const saved = loadState()
-    if (!saved) return
+function tryRestore() {
+  const saved = loadState()
+  if (!saved) return
 
-    const { startTimestamp: savedTs, category, savedAt, mode: savedMode, targetDuration: savedTarget } = saved
+  const { 
+    startTimestamp: savedTs, 
+    elapsed: savedElapsed,
+    category, 
+    savedAt, 
+    mode: savedMode, 
+    targetDuration: savedTarget,
+    isPaused   // 解构出暂停标记
+  } = saved
 
-    const MAX_DURATION = 24 * 60 * 60 * 1000
-    const age = Date.now() - savedTs
-    if (!category || !savedTs || savedAt > Date.now() || age > MAX_DURATION) {
-      clearState()
+  const MAX_DURATION = 24 * 60 * 60 * 1000
+  const age = Date.now() - savedTs
+  if (!category || !savedTs || savedAt > Date.now() || age > MAX_DURATION) {
+    clearState()
+    return
+  }
+
+  mode.value           = savedMode || 'countup'
+  targetDuration.value = savedTarget || 25 * 60
+  selectedCategory.value = category
+  startTimestamp.value   = savedTs
+
+  if (isPaused) {
+    // 暂停状态恢复：直接用存储的 elapsed 值
+    // 不能用 Date.now() - savedTs，那样会把暂停期间的时间也算进去
+    elapsed.value   = savedElapsed
+    isRunning.value = false
+    // 不启动 RAF 和 interval，维持暂停状态
+    return
+  }
+
+  // 运行状态恢复（原有逻辑）
+  if (mode.value === 'countdown') {
+    const restoredElapsed = Math.floor(age / 1000)
+    if (restoredElapsed >= targetDuration.value) {
+      elapsed.value = targetDuration.value
+      _onCountdownFinish()
       return
     }
-
-    // 新增：恢复模式和目标时长
-    mode.value           = savedMode || 'countup'
-    targetDuration.value = savedTarget || 25 * 60
-
-    // 倒计时模式：检查恢复时是否已超出目标时长
-    if (mode.value === 'countdown') {
-      const restoredElapsed = Math.floor(age / 1000)
-      if (restoredElapsed >= targetDuration.value) {
-        // 后台已经超时，直接触发完成
-        elapsed.value          = targetDuration.value
-        selectedCategory.value = category
-        startTimestamp.value   = savedTs
-        _onCountdownFinish()
-        return
-      }
-    }
-
-    selectedCategory.value = category
-    startTimestamp.value   = savedTs
-    elapsed.value          = Math.floor(age / 1000)
-    isRunning.value        = true
-
-    _startRaf()
-    _startInterval()
   }
+
+  elapsed.value   = Math.floor(age / 1000)
+  isRunning.value = true
+  _startRaf()
+  _startInterval()
+}
 
   tryRestore()
 
@@ -328,25 +342,28 @@ export const useTimerStore = defineStore('timer', () => {
     startTimerNotification(displayTime.value, category.name)
   }
 
-  function pause() {
-    if (!isRunning.value) return
-    syncElapsed()
-    _stopRaf()
-    _stopInterval()
-    isRunning.value = false
-    clearState()
-  }
+function pause() {
+  if (!isRunning.value) return
+  syncElapsed()
+  _stopRaf()
+  _stopInterval()
+  isRunning.value = false
+  saveState(startTimestamp.value, elapsed.value, selectedCategory.value, mode.value, targetDuration.value, true)
+}
 
-  function resume() {
-    if (isRunning.value || !selectedCategory.value) return
-    startTimestamp.value = Date.now() - elapsed.value * 1000
-    isRunning.value      = true
+function resume() {
+  if (isRunning.value || !selectedCategory.value) return
+  // 用当前时间减去已用秒数，重新校准开始时间戳
+  // 这样 syncElapsed 里的 Date.now() - startTimestamp 就能得到正确的值
+  startTimestamp.value = Date.now() - elapsed.value * 1000
+  isRunning.value      = true
 
-    saveState(startTimestamp.value, elapsed.value, selectedCategory.value, mode.value, targetDuration.value)
+  // 恢复运行时，isPaused 改回 false
+  saveState(startTimestamp.value, elapsed.value, selectedCategory.value, mode.value, targetDuration.value, false)
 
-    _startRaf()
-    _startInterval()
-  }
+  _startRaf()
+  _startInterval()
+}
 
   async function stop() {
     if (!selectedCategory.value) return
