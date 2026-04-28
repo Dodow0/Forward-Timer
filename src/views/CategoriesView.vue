@@ -17,13 +17,15 @@
               </button>
 
               <span class="color-indicator" :style="{ background: parent.color }"></span>
+              <div class="item-text">
               <span class="item-name">{{ parent.name }}</span>
-
-              <span v-if="durationMap[parent.id] !== undefined" class="time-badge">
+              
+              <span v-if="durationMap[parent.id] !== undefined" class="time-sub">
                 {{ formatDuration(durationMap[parent.id]) }}
               </span>
             </div>
-
+            </div>
+            
             <div class="item-actions">
               <button @click.stop="startAddChild(parent)" class="btn-icon btn-icon--add" title="添加小类">
                 <Plus :size="18" :stroke-width="2" />
@@ -297,6 +299,19 @@ async function handleSave() {
 
 .time-badge { font-size: 11px; font-weight: 700; color: var(--color-fg-muted); background: var(--color-muted); padding: 2px 8px; border-radius: 12px; margin-left: 8px; font-feature-settings: "tnum"; opacity: 0.8; }
 .category-item--child .time-badge { font-size: 10px; opacity: 0.6; }
+.item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 时长变成小字副标题，不再是 badge 胶囊形状 */
+.time-sub {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-fg-muted);
+  font-feature-settings: "tnum"; /* 等宽数字，对齐更好看 */
+}
 
 .archive-toggle { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: 13px; font-weight: 700; color: var(--color-fg-muted); cursor: pointer; }
 .archive-section { margin-top: 8px; }
