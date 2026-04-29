@@ -8,7 +8,15 @@
       </router-view>
     </main>
 
-    <nav class="bottom-nav">
+    <nav
+      class="bottom-nav"
+      :class="[
+        {
+          'bottom-nav--focusing-light': isFocusingOnTimer && !isDark,
+          'bottom-nav--focusing-dark': isFocusingOnTimer && isDark
+        }
+      ]"
+    >
       <router-link to="/timer" class="nav-item" active-class="active">
         <Timer class="nav-icon" :size="22" :stroke-width="2" />
         <span class="nav-label">计时</span>
@@ -22,7 +30,14 @@
         <span class="nav-label">分类</span>
       </router-link>
       
-      <button @click="toggleDarkMode" class="theme-toggle" aria-label="切换深色模式">
+      <button
+        @click="toggleDarkMode"
+        class="theme-toggle"
+        :class="{
+          'theme-toggle--timer-dark': route.path === '/timer' && isDark
+        }"
+        aria-label="切换深色模式"
+      >
         <Sun v-if="!isDark" :size="20" :stroke-width="2" />
         <Moon v-else :size="20" :stroke-width="2" />
       </button>
@@ -31,11 +46,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useCategoryStore } from '@/stores/categoryStore'
+import { useTimerStore } from '@/stores/timerStore'
 import { Timer, BarChart2, LayoutGrid, Sun, Moon } from 'lucide-vue-next'
 
 const categoryStore = useCategoryStore()
+const timerStore = useTimerStore()
+const route = useRoute()
+const isFocusing = computed(() => timerStore.isRunning || timerStore.elapsed > 0)
+const isFocusingOnTimer = computed(() => isFocusing.value && route.path === '/timer')
 
 // 新增：深色模式状态控制
 const isDark = ref(false)
@@ -76,6 +97,7 @@ onMounted(() => {
   flex: 1;
   overflow-y: auto;
   padding-bottom: env(safe-area-inset-bottom);
+  background: var(--color-bg);
 }
 
 .bottom-nav {
@@ -84,6 +106,54 @@ onMounted(() => {
   background: var(--color-bg);
   padding-bottom: env(safe-area-inset-bottom);
   position: relative;
+}
+
+.bottom-nav--focusing-light {
+  background: #f9f9f9;
+  border-top-color: rgba(29, 29, 31, 0.06);
+}
+
+.bottom-nav--focusing-light .nav-item {
+  color: rgba(29, 29, 31, 0.18);
+}
+
+.bottom-nav--focusing-light .nav-item.active {
+  color: rgba(29, 29, 31, 0.45);
+}
+
+.bottom-nav--focusing-light .nav-item.active::before {
+  background: rgba(29, 29, 31, 0.35);
+}
+
+.bottom-nav--focusing-light .theme-toggle {
+  background: rgba(29, 29, 31, 0.03);
+  border-color: rgba(29, 29, 31, 0.08);
+  color: rgba(29, 29, 31, 0.4);
+  box-shadow: none;
+}
+
+.bottom-nav--focusing-dark {
+  background: #050505;
+  border-top-color: rgba(242, 239, 231, 0.08);
+}
+
+.bottom-nav--focusing-dark .nav-item {
+  color: rgba(242, 239, 231, 0.32);
+}
+
+.bottom-nav--focusing-dark .nav-item.active {
+  color: rgba(242, 239, 231, 0.68);
+}
+
+.bottom-nav--focusing-dark .nav-item.active::before {
+  background: rgba(242, 239, 231, 0.58);
+}
+
+.bottom-nav--focusing-dark .theme-toggle {
+  background: rgba(242, 239, 231, 0.06);
+  border-color: rgba(242, 239, 231, 0.12);
+  color: rgba(242, 239, 231, 0.7);
+  box-shadow: none;
 }
 
 .nav-item {
@@ -147,6 +217,13 @@ onMounted(() => {
   transition: all 0.2s ease;
   z-index: 100;
   color: var(--color-fg);
+}
+
+.theme-toggle--timer-dark {
+  background: rgba(242, 239, 231, 0.08);
+  border-color: rgba(242, 239, 231, 0.18);
+  color: rgba(242, 239, 231, 0.9);
+  box-shadow: 0 0 0 1px rgba(5, 5, 5, 0.35);
 }
 
 .theme-toggle:hover {

@@ -1,5 +1,11 @@
 <template>
-  <div class="home-view">
+  <div
+    class="home-view"
+    :class="[
+      { 'is-focusing': timerStore.isRunning || timerStore.elapsed > 0 },
+      isDarkTheme ? 'focus-theme-dark' : 'focus-theme-light'
+    ]"
+  >
     <header class="page-header">
       <div class="header-content">
         <p class="eyebrow">{{ today }}</p>
@@ -149,7 +155,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted  } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useTimerStore } from '@/stores/timerStore'
 import { useCategoryStore } from '@/stores/categoryStore'
 import PiPTimer from '@/components/PiPTimer.vue'
@@ -159,6 +165,11 @@ const pipTimerRef = ref(null)
 const pipOpen = computed(() => pipTimerRef.value?.isOpen ?? false)
 const timerStore    = useTimerStore()
 const categoryStore = useCategoryStore()
+const isDarkTheme = ref(
+  typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+)
+
+let themeObserver = null
 
 const today = computed(() =>
   new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })
@@ -233,20 +244,82 @@ function handleFinishDismiss() {
 
 // 页面挂载时：如果 store 已经从 localStorage 恢复了倒计时，同步本地 UI 状态
 onMounted(() => {
+  const syncTheme = () => {
+    isDarkTheme.value = document.documentElement.classList.contains('dark')
+  }
+
+  syncTheme()
+
+  themeObserver = new MutationObserver(syncTheme)
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class']
+  })
+
   if (timerStore.mode === 'countdown') {
     currentMode.value   = 'countdown'
     targetMinutes.value = Math.round(timerStore.targetDuration / 60)
   }
 })
+
+onBeforeUnmount(() => {
+  themeObserver?.disconnect()
+  themeObserver = null
+})
 </script>
 
 <style scoped>
-.home-view { min-height: 100%; background: var(--color-bg); }
+.home-view,
+.focus-theme-light.home-view {
+  min-height: 100%;
+  background: var(--color-bg);
+  transition: background 0.8s ease;
+  --focus-bg: #f9f9f9;
+  --focus-fg: #1d1d1f;
+  --focus-ring: rgba(29, 29, 31, 0.86);
+  --focus-ring-muted: rgba(29, 29, 31, 0.08);
+  --focus-muted: rgba(29, 29, 31, 0.38);
+  --focus-dot: rgba(29, 29, 31, 0.26);
+  --focus-control-bg: rgba(29, 29, 31, 0.04);
+  --focus-control-border: rgba(29, 29, 31, 0.12);
+  --focus-control-fg: rgba(29, 29, 31, 0.76);
+  --focus-primary-bg: #1d1d1f;
+  --focus-primary-fg: #ffffff;
+  --focus-outline-border: rgba(29, 29, 31, 0.22);
+  --focus-pip-bg: rgba(29, 29, 31, 0.03);
+  --focus-pip-border: rgba(29, 29, 31, 0.08);
+  --focus-pip-fg: rgba(29, 29, 31, 0.42);
+  --focus-pip-active-bg: rgba(29, 29, 31, 0.08);
+  --focus-pip-active-border: rgba(29, 29, 31, 0.16);
+  --focus-pip-active-fg: rgba(29, 29, 31, 0.74);
+}
+
+.focus-theme-dark.home-view {
+  --focus-bg: #050505;
+  --focus-fg: rgba(245, 245, 245, 0.98);
+  --focus-ring: rgba(245, 245, 245, 0.88);
+  --focus-ring-muted: rgba(245, 245, 245, 0.12);
+  --focus-muted: rgba(245, 245, 245, 0.46);
+  --focus-dot: rgba(245, 245, 245, 0.32);
+  --focus-control-bg: rgba(245, 245, 245, 0.07);
+  --focus-control-border: rgba(245, 245, 245, 0.15);
+  --focus-control-fg: rgba(245, 245, 245, 0.86);
+  --focus-primary-bg: rgba(245, 245, 245, 0.9);
+  --focus-primary-fg: #050505;
+  --focus-outline-border: rgba(245, 245, 245, 0.25);
+  --focus-pip-bg: rgba(245, 245, 245, 0.05);
+  --focus-pip-border: rgba(245, 245, 245, 0.11);
+  --focus-pip-fg: rgba(245, 245, 245, 0.64);
+  --focus-pip-active-bg: rgba(245, 245, 245, 0.1);
+  --focus-pip-active-border: rgba(245, 245, 245, 0.2);
+  --focus-pip-active-fg: rgba(245, 245, 245, 0.88);
+}
 
 .page-header {
   padding: 32px 20px 16px;
   background: var(--color-bg);
   border-bottom: 1px solid var(--color-border);
+  transition: opacity 0.8s ease;
 }
 
 .eyebrow { font-size: 12px; font-weight: 600; color: var(--color-fg-muted); letter-spacing: 0.05em; margin-bottom: 4px; }
@@ -254,6 +327,7 @@ onMounted(() => {
 
 .timer-section {
   display: flex; flex-direction: column; align-items: center; gap: 32px; padding: 32px 20px; background: var(--color-bg);
+  transition: background 0.8s ease, min-height 0.8s ease;
 }
 
 /* 复用 StatsView 的分段控制器样式 */
@@ -265,6 +339,21 @@ onMounted(() => {
   font-size: 13px; font-weight: 600; color: var(--color-fg-muted); cursor: pointer; transition: all 0.2s;
 }
 .segment-btn--active { background: var(--color-bg); color: var(--color-fg); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+.focus-theme-dark .segmented-control {
+  background: rgba(245, 245, 245, 0.08);
+  border: 1px solid rgba(245, 245, 245, 0.12);
+}
+
+.focus-theme-dark .segment-btn {
+  color: rgba(245, 245, 245, 0.62);
+}
+
+.focus-theme-dark .segment-btn--active {
+  background: rgba(245, 245, 245, 0.16);
+  color: rgba(245, 245, 245, 0.96);
+  box-shadow: none;
+}
 
 .timer-ring {
   width: 210px; height: 210px; border-radius: 50%; 
@@ -343,7 +432,116 @@ onMounted(() => {
   border-color: var(--color-primary);
   color: var(--color-primary);
 }
-.category-section { padding: 32px 20px; background: var(--color-muted); min-height: calc(100vh - 400px); }
+.category-section {
+  padding: 32px 20px;
+  background: var(--color-muted);
+  min-height: calc(100vh - 400px);
+  transition: opacity 0.8s ease;
+}
+
+.is-focusing.home-view,
+.is-focusing .timer-section {
+  background: var(--focus-bg);
+}
+
+.is-focusing .timer-section {
+  min-height: 100vh;
+  justify-content: center;
+}
+
+.is-focusing .page-header,
+.is-focusing .category-section,
+.is-focusing .segmented-control,
+.is-focusing .presets-panel {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.is-focusing .timer-ring {
+  width: min(76vw, 300px);
+  height: min(76vw, 300px);
+  border-width: 1.5px;
+  border-color: var(--focus-ring);
+  color: var(--focus-fg);
+  filter: none;
+  animation: none;
+}
+
+.is-focusing .timer-ring--running {
+  border-color: var(--focus-ring);
+}
+
+.is-focusing .timer-ring--svg {
+  border-color: transparent;
+}
+
+.is-focusing .progress-svg circle:first-child {
+  stroke: var(--focus-ring-muted);
+}
+
+.is-focusing .progress-svg circle:last-child {
+  stroke: var(--focus-ring);
+  transition: stroke-dashoffset 1s linear !important;
+}
+
+.is-focusing .time-text {
+  color: var(--focus-fg);
+  font-size: clamp(68px, 18vw, 92px);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1;
+  margin-left: 0;
+}
+
+.is-focusing .category-badge {
+  background: transparent !important;
+  color: var(--focus-muted);
+  padding: 0;
+}
+
+.is-focusing .category-badge span {
+  color: var(--focus-muted) !important;
+}
+
+.is-focusing .category-badge .dot {
+  background: var(--focus-dot) !important;
+}
+
+.is-focusing .btn-pip,
+.is-focusing .controls {
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.is-focusing .btn {
+  background: var(--focus-control-bg);
+  border: 1px solid var(--focus-control-border);
+  color: var(--focus-control-fg);
+}
+
+.is-focusing .btn--primary {
+  background: var(--focus-primary-bg);
+  border-color: var(--focus-primary-bg);
+  color: var(--focus-primary-fg);
+}
+
+.is-focusing .btn--outline {
+  background: transparent;
+  border-color: var(--focus-outline-border);
+  color: var(--focus-control-fg);
+}
+
+.is-focusing .btn-pip {
+  background: var(--focus-pip-bg);
+  border-color: var(--focus-pip-border);
+  color: var(--focus-pip-fg);
+}
+
+.is-focusing .btn-pip--active {
+  background: var(--focus-pip-active-bg);
+  border-color: var(--focus-pip-active-border);
+  color: var(--focus-pip-active-fg);
+}
 .section-label { font-size: 12px; font-weight: 700; color: var(--color-fg-muted); margin-bottom: 16px; text-transform: uppercase; }
 .category-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .category-card {

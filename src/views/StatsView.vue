@@ -722,7 +722,7 @@ onMounted(loadData)
 .btn--danger { background: #ff4d4f; color: #fff; }
 .btn--primary {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-bg);
   border: none;
   box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.2); /* 增加微妙阴影 */
 }

@@ -25,13 +25,13 @@
 }
 
 .dark {
-  --color-primary:        #FAFAFA;   /* 深色模式：主色变为近白 */
-  --color-accent:         #60A5FA;   
-  --color-bg:             #09090B;   /* 深色模式：背景为极深色 */
-  --color-muted:          #18181B;   
-  --color-fg:             #FAFAFA;   
-  --color-fg-muted:       #A1A1AA;
-  --color-border:         #27272A;   
+  --color-primary:        #F2EFE7;
+  --color-accent:         #9CB7AA;
+  --color-bg:             #101214;
+  --color-muted:          #191D20;
+  --color-fg:             #E8E5DD;
+  --color-fg-muted:       #9B978D;
+  --color-border:         #2A3034;
 }
 body {
   font-family: 'Outfit', sans-serif;
