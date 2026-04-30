@@ -20,6 +20,17 @@
           >{{ m.label }}</button>
         </div>
 
+        <button
+          class="sync-btn"
+          :class="{ 'sync-btn--unsynced': hasUnsyncedChanges }"
+          @click="showWebDAVModal = true"
+        >
+          <Cloud :size="16" />
+          <span>同步</span>
+          <span v-if="hasUnsyncedChanges" class="sync-btn__status">未同步</span>
+          <span v-if="hasUnsyncedChanges" class="sync-btn__dot" aria-hidden="true"></span>
+        </button>
+
         <div class="more-actions">
           <button class="more-btn" :class="{ active: showExportMenu }" @click="showExportMenu = !showExportMenu">
             <MoreHorizontal :size="20" />
@@ -40,12 +51,6 @@
             <button class="dropdown-item" @click="exportAsCSV(categoryStore); showExportMenu = false">
               <FileSpreadsheet :size="16" />
               <span>导出 CSV</span>
-            </button>
-              <!-- 新增：分隔线 + WebDAV 入口 -->
-            <div class="dropdown-divider"></div>
-            <button class="dropdown-item" @click="showWebDAVModal = true; showExportMenu = false">
-              <Cloud :size="16" />
-              <span>WebDAV</span>
             </button>
           </div>
         </div>
@@ -157,7 +162,10 @@
       <transition name="fade">
         <div v-if="showWebDAVModal" class="overlay" @click.self="showWebDAVModal = false">
           <div class="confirm-card webdav-card">
-            <p class="confirm-title">WebDAV 同步</p>
+            <p class="confirm-title confirm-title--sync">
+              <span>WebDAV 同步</span>
+              <span v-if="hasUnsyncedChanges" class="unsynced-badge">未同步</span>
+            </p>
 
             <!-- 配置区：服务器地址、用户名、密码 -->
             <div class="webdav-fields">
@@ -230,6 +238,7 @@ import { getDateRange, groupByCategory, groupByDate, formatDuration } from '@/ut
 import { exportAsJSON, exportAsCSV, importFromJSON } from '@/utils/dataTransfer'
 import { Download, Upload, FileJson, FileSpreadsheet, Loader2, MoreHorizontal, Cloud } from 'lucide-vue-next'
 import { uploadOverwrite, downloadOverwrite, smartMerge, saveConfig, loadConfig } from '@/sync/webdav'
+import { hasUnsyncedChanges } from '@/sync/syncState'
 
 const categoryStore = useCategoryStore()
 const mode    = ref('day')
@@ -753,6 +762,50 @@ onMounted(loadData)
   margin-top: 16px;
 }
 
+.sync-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sync-btn:hover {
+  border-color: var(--color-primary);
+}
+
+.sync-btn--unsynced {
+  border-color: rgba(239, 68, 68, 0.28);
+  color: #dc2626;
+}
+
+.sync-btn__status {
+  font-size: 11px;
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.sync-btn__dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #ef4444;
+  box-shadow: 0 0 0 2px var(--color-bg);
+}
+
 .more-actions {
   position: relative;
 }
@@ -836,12 +889,6 @@ onMounted(loadData)
   to { transform: rotate(360deg); }
 }
 
-.dropdown-divider {
-  height: 1px;
-  background: var(--color-border);
-  margin: 4px 0;
-}
-
 /* 让 WebDAV 弹窗比删除确认弹窗更宽，能容纳输入框 */
 .webdav-card {
   width: 320px;
@@ -917,6 +964,24 @@ onMounted(loadData)
 
 .sync-status--error {
   color: #ef4444;
+}
+
+.confirm-title--sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.unsynced-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .close-btn {

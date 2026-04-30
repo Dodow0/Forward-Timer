@@ -1,5 +1,6 @@
 // src/sync/webdav.js
 import { db } from '@/db/local'
+import { markSynced, runWithUnsyncedTrackingPaused } from './syncState'
 
 function getConfig() {
   const raw = localStorage.getItem('webdav_config')
@@ -66,6 +67,7 @@ export async function uploadOverwrite() {
 
   const localData = await exportLocalData()
   await pushData(config, localData)
+  markSynced()
 
   return {
     categories: localData.categories.length,
@@ -85,12 +87,15 @@ export async function downloadOverwrite() {
 
   // 在一个事务里清空本地数据库再写入云端数据
   // 这样可以保证不会出现"删了一半本地数据，写入又失败"的中间状态
-  await db.transaction('rw', db.categories, db.records, async () => {
-    await db.categories.clear()
-    await db.records.clear()
-    await db.categories.bulkAdd(remoteData.categories)
-    await db.records.bulkAdd(remoteData.records)
+  await runWithUnsyncedTrackingPaused(async () => {
+    await db.transaction('rw', db.categories, db.records, async () => {
+      await db.categories.clear()
+      await db.records.clear()
+      await db.categories.bulkAdd(remoteData.categories)
+      await db.records.bulkAdd(remoteData.records)
+    })
   })
+  markSynced()
 
   return {
     categories: remoteData.categories.length,
@@ -114,6 +119,7 @@ export async function smartMerge() {
   // 如果云端还没有文件，直接上传本地数据即可，不需要合并
   if (!remoteData) {
     await pushData(config, localData)
+    markSynced()
     return { categories: localData.categories.length, records: localData.records.length, merged: false }
   }
 
@@ -166,18 +172,20 @@ export async function smartMerge() {
 
   // 把新分类写入本地数据库，bulkAdd 会返回新分配的 id 数组
   // 注意：我们需要把新分配的 id 也加进 idMap，后续合并记录时要用
-  if (newCategories.length > 0) {
-    const newIds = await db.categories.bulkAdd(newCategories, { allKeys: true })
-    newCategories.forEach((cat, index) => {
-      // 找到这个新分类在 remoteData 里对应的原始 id
-      const originalRemoteCat = remoteData.categories.find(
-        rc => categoryKey(rc, remoteData.categories) === categoryKey(cat, newCategories)
-      )
-      if (originalRemoteCat) {
-        idMap.set(originalRemoteCat.id, newIds[index])
-      }
-    })
-  }
+  await runWithUnsyncedTrackingPaused(async () => {
+    if (newCategories.length > 0) {
+      const newIds = await db.categories.bulkAdd(newCategories, { allKeys: true })
+      newCategories.forEach((cat, index) => {
+        // 找到这个新分类在 remoteData 里对应的原始 id
+        const originalRemoteCat = remoteData.categories.find(
+          rc => categoryKey(rc, remoteData.categories) === categoryKey(cat, newCategories)
+        )
+        if (originalRemoteCat) {
+          idMap.set(originalRemoteCat.id, newIds[index])
+        }
+      })
+    }
+  })
 
   // ── 合并计时记录 ─────────────────────────────────────────────
   // 判断"同一条记录"的依据是四元组：(categoryId映射后, date, startTime, duration)
@@ -200,14 +208,17 @@ export async function smartMerge() {
     // 去掉 id 字段，让 Dexie 自动分配，避免 id 冲突
     .map(({ id: _oldId, ...rest }) => rest)
 
-  if (newRecords.length > 0) {
-    await db.records.bulkAdd(newRecords)
-  }
+  await runWithUnsyncedTrackingPaused(async () => {
+    if (newRecords.length > 0) {
+      await db.records.bulkAdd(newRecords)
+    }
+  })
 
   // ── 把合并后的完整数据推送回云端 ────────────────────────────
   // 这样云端也拥有了两边的全量数据，下次同步时两边就完全一致了
   const mergedData = await exportLocalData()
   await pushData(config, mergedData)
+  markSynced()
 
   return {
     categories:    mergedData.categories.length,
