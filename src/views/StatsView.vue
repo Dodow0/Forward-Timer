@@ -546,14 +546,17 @@ onMounted(loadData)
 /* 分段控制器 */
 .segmented-control {
   display: inline-flex;
-  flex: 1; 
+  flex: 1;
+  min-width: 0;
   background: var(--color-muted);
   padding: 4px;
   border-radius: 8px;
 }
 
 .segment-btn {
-  padding: 6px 20px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 6px 10px;
   border-radius: 6px;
   border: none;
   background: transparent;
@@ -562,6 +565,7 @@ onMounted(loadData)
   color: var(--color-fg-muted);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
 }
 
 .segment-btn--active {
@@ -767,6 +771,7 @@ onMounted(loadData)
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
   height: 36px;
   padding: 0 14px;
   border: 1px solid var(--color-border);
@@ -808,6 +813,7 @@ onMounted(loadData)
 
 .more-actions {
   position: relative;
+  flex-shrink: 0;
 }
 
 .more-btn {
@@ -995,5 +1001,43 @@ onMounted(loadData)
   cursor: pointer;
   padding: 4px;
   line-height: 1;
+}
+
+@media (max-width: 480px) {
+  .toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .segmented-control {
+    order: 1;
+    width: 100%;
+  }
+
+  .segment-btn {
+    padding: 8px 0;
+    font-size: 12px;
+  }
+
+  .sync-btn {
+    order: 2;
+    margin-left: auto;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+
+  .more-actions {
+    order: 3;
+  }
+
+  .more-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .custom-date-picker {
+    flex-direction: column;
+  }
 }
 </style>
