@@ -39,6 +39,16 @@
           <div v-if="showExportMenu" class="click-away-overlay" @click="showExportMenu = false"></div>
 
           <div v-if="showExportMenu" class="dropdown-menu">
+            <label class="dropdown-toggle-item" @click.stop>
+              <div class="dropdown-toggle-copy">
+                <span class="dropdown-toggle-title">联动人升</span>
+                <span class="dropdown-toggle-hint">专注结束后同步番茄记录</span>
+              </div>
+              <span class="switch">
+                <input v-model="lifeUpSyncEnabled" type="checkbox" class="switch-input" aria-label="联动人升" />
+                <span class="switch-track"></span>
+              </span>
+            </label>
             <button class="dropdown-item" @click="triggerImport(); showExportMenu = false" :disabled="isImporting">
               <Loader2 v-if="isImporting" class="animate-spin" :size="16" />
               <Upload v-else :size="16" />
@@ -236,6 +246,7 @@ import { useCategoryStore } from '@/stores/categoryStore'
 import { getRecordsByRange, deleteRecord} from '@/db'
 import { getDateRange, groupByCategory, groupByDate, formatDuration } from '@/utils/dateHelpers'
 import { exportAsJSON, exportAsCSV, importFromJSON } from '@/utils/dataTransfer'
+import { getLifeUpSyncEnabled, setLifeUpSyncEnabled } from '@/utils/lifeup'
 import { Download, Upload, FileJson, FileSpreadsheet, Loader2, MoreHorizontal, Cloud } from 'lucide-vue-next'
 import { uploadOverwrite, downloadOverwrite, smartMerge, saveConfig, loadConfig } from '@/sync/webdav'
 import { hasUnsyncedChanges } from '@/sync/syncState'
@@ -326,6 +337,11 @@ const heatmapData = computed(() => {
 const isImporting = ref(false)
 const fileInput = ref(null)
 const showExportMenu = ref(false)
+const lifeUpSyncEnabled = ref(getLifeUpSyncEnabled())
+
+watch(lifeUpSyncEnabled, (enabled) => {
+  setLifeUpSyncEnabled(enabled)
+})
 
 function triggerImport() {
   fileInput.value?.click()
@@ -853,12 +869,96 @@ onMounted(loadData)
   border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 8px;
-  min-width: 140px;
+  min-width: 230px;
   box-shadow: 0 10px 24px -8px rgba(0,0,0,0.15);
   display: flex;
   flex-direction: column;
   gap: 4px;
   z-index: 20;
+}
+
+.dropdown-toggle-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.dropdown-toggle-item:hover {
+  background: var(--color-muted);
+}
+
+.dropdown-toggle-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dropdown-toggle-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-fg);
+}
+
+.dropdown-toggle-hint {
+  font-size: 11px;
+  color: var(--color-fg-muted);
+}
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.switch-input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.switch-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.45);
+  transition: background 0.2s ease;
+}
+
+.switch-track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
+  transition: transform 0.2s ease;
+}
+
+.switch-input:checked + .switch-track {
+  background: var(--color-primary);
+}
+
+.switch-input:checked + .switch-track::after {
+  transform: translateX(18px);
+}
+
+.switch-input:focus-visible + .switch-track {
+  outline: 2px solid rgba(var(--color-primary-rgb), 0.28);
+  outline-offset: 2px;
 }
 
 .dropdown-item {

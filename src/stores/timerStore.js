@@ -8,6 +8,7 @@ import { ref, computed } from 'vue'
 import { addRecord } from '@/db'
 import { today } from '@/utils/dateHelpers'
 import {initNotificationSW, startTimerNotification, updateTimerNotification, stopTimerNotification } from '@/utils/notificationManager'
+import { syncPomodoroToLifeUp } from '@/utils/lifeup'
 
 // 模块加载时就初始化 SW（不需要用户操作）
 initNotificationSW()
@@ -138,6 +139,12 @@ export const useTimerStore = defineStore('timer', () => {
           duration:   seg.duration
         })
       }
+
+      syncPomodoroToLifeUp({
+        startTimeMs: startTimestamp.value,
+        durationSeconds: targetDuration.value,
+        rewardTomatoes: true
+      })
     }
 
     stopTimerNotification()
@@ -373,18 +380,26 @@ function resume() {
     isRunning.value = false
     clearState()
 
+    const finishedCategory = selectedCategory.value
+    const startedAt = startTimestamp.value
     const actualDuration = elapsed.value
 
     if (actualDuration > 5) {
-    const segments = splitByMidnight(startTimestamp.value, actualDuration)
-    for (const seg of segments) {
-      await addRecord({
-        categoryId: selectedCategory.value.id,
-        date:       seg.date,
-        startTime:  seg.startTime,
-        duration:   seg.duration
+      const segments = splitByMidnight(startedAt, actualDuration)
+      for (const seg of segments) {
+        await addRecord({
+          categoryId: finishedCategory.id,
+          date:       seg.date,
+          startTime:  seg.startTime,
+          duration:   seg.duration
+        })
+      }
+
+      syncPomodoroToLifeUp({
+        startTimeMs: startedAt,
+        durationSeconds: actualDuration,
+        rewardTomatoes: true
       })
-    }
     }
 
     stopTimerNotification()
